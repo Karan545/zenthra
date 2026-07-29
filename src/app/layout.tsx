@@ -23,7 +23,7 @@ const instrumentSerif = Instrument_Serif({
 
 export const metadata: Metadata = {
   title: {
-    default: `${siteConfig.name} — ${siteConfig.tagline}`,
+    default: siteConfig.title,
     template: `%s · ${siteConfig.name}`,
   },
   description: siteConfig.description,
@@ -35,12 +35,25 @@ export const metadata: Metadata = {
     "agentic directory",
     "Web3",
     "autonomous agents",
+    "on-chain AI agents",
   ],
+  icons: {
+    icon: [
+      { url: "/photos/zenthralogo.jpg", type: "image/jpeg" },
+      { url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   openGraph: {
-    title: siteConfig.name,
+    title: siteConfig.title,
     description: siteConfig.description,
     type: "website",
     siteName: siteConfig.name,
+  },
+  twitter: {
+    card: "summary",
+    title: siteConfig.title,
+    description: siteConfig.description,
   },
 };
 

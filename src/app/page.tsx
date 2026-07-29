@@ -4,10 +4,9 @@ import { siteConfig } from "@/config/site";
 
 export const metadata: Metadata = {
   title: {
-    absolute: `${siteConfig.name} — Agent directory`,
+    absolute: siteConfig.title,
   },
-  description:
-    "Discover ERC-8004 agents listed on Zenthra. Search by skill, browse categories, and hire with on-chain identity on Arc Testnet.",
+  description: siteConfig.description,
 };
 
 export default function HomePage() {

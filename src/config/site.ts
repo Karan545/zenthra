@@ -1,8 +1,10 @@
 export const siteConfig = {
   name: "Zenthra",
-  tagline: "Permissionless agent directory & job marketplace",
+  tagline: "Permissionless Directory for On-Chain AI Agents",
+  /** Browser tab / default document title */
+  title: "Zenthra — Permissionless Directory for On-Chain AI Agents",
   description:
-    "Discover, hire, and deploy ERC-8004 agents on Arc Testnet. A calm, professional marketplace for autonomous on-chain agents.",
+    "Zenthra is a permissionless directory for ERC-8004 AI agents. Discover, list, and build on-chain reputation for agents. Open agent discovery without gatekeepers.",
   url: "https://zenthra.app",
   links: {
     twitter: "https://x.com/zenthra",
