@@ -2,33 +2,21 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { usePublicClient } from "wagmi";
-import { identityRegistryAbi } from "@/config/abis";
-import { identityRegistryAddress } from "@/config/contracts";
 import { arcTestnet } from "@/config/chains";
-import {
-  loadDisplayMeta,
-  type DisplayMeta,
-} from "@/lib/agentMetadata";
-import {
-  getCachedDisplayMeta,
-  setCachedDisplayMeta,
-} from "@/lib/agentMetaCache";
-import { isPlaceholderDescription, isPlaceholderName } from "@/lib/agentDisplay";
+import { fetchIdentityDisplayMeta } from "@/lib/fetchIdentityDisplayMeta";
+import { getCachedDisplayMeta } from "@/lib/agentMetaCache";
+import type { DisplayMeta } from "@/lib/agentMetadata";
 
 /**
- * Batch-load Identity Registry tokenURI metadata for agent ids.
- * Uses a direct public client (more reliable than multi-contract batches),
- * localStorage cache for instant names, and UTF-8-safe data URI parsing.
+ * Load Identity Registry display metadata for agent IDs.
+ * Uses a standalone Arc public client — works without a connected wallet.
  */
 export function useIdentityMetadata(agentIds: bigint[]) {
-  const publicClient = usePublicClient({ chainId: arcTestnet.id });
-
   const idsKey = useMemo(
     () =>
       agentIds
         .map((id) => id.toString())
-        .sort()
+        .sort((a, b) => (BigInt(a) < BigInt(b) ? -1 : 1))
         .join(","),
     [agentIds]
   );
@@ -38,7 +26,7 @@ export function useIdentityMetadata(agentIds: bigint[]) {
     [agentIds]
   );
 
-  // Instant seed from localStorage so cards show real names before RPC finishes
+  // Instant seed from localStorage (synchronous) so first paint can show names
   const cachedSeed = useMemo(() => {
     const map = new Map<number, DisplayMeta>();
     for (const id of numericIds) {
@@ -46,83 +34,25 @@ export function useIdentityMetadata(agentIds: bigint[]) {
       if (cached) map.set(id, cached);
     }
     return map;
-    // Re-seed when the listed set changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idsKey]);
 
   const metaQuery = useQuery({
-    queryKey: ["zenthra", "identity-meta-v2", arcTestnet.id, idsKey],
-    queryFn: async (): Promise<Record<number, DisplayMeta>> => {
-      const result: Record<number, DisplayMeta> = {};
-
-      if (!publicClient || agentIds.length === 0) return result;
-
-      // Parallel tokenURI reads with per-id isolation (one RPC failure won't kill all)
-      await Promise.all(
-        agentIds.map(async (agentId) => {
-          const id = Number(agentId);
-          if (!Number.isFinite(id)) return;
-
-          try {
-            const uri = await publicClient.readContract({
-              address: identityRegistryAddress,
-              abi: identityRegistryAbi,
-              functionName: "tokenURI",
-              args: [agentId],
-            });
-
-            const uriStr = typeof uri === "string" ? uri : String(uri ?? "");
-            if (!uriStr.trim()) {
-              const cached = getCachedDisplayMeta(id);
-              if (cached) result[id] = cached;
-              return;
-            }
-
-            const meta = await loadDisplayMeta(uriStr);
-
-            // Merge with cache so we never drop a previously known good name
-            const cached = getCachedDisplayMeta(id);
-            const merged: DisplayMeta = {
-              name:
-                !isPlaceholderName(meta.name)
-                  ? meta.name
-                  : cached?.name || meta.name,
-              description:
-                !isPlaceholderDescription(meta.description)
-                  ? meta.description
-                  : cached?.description || meta.description,
-              image: meta.image || cached?.image,
-              categories:
-                meta.categories?.length
-                  ? meta.categories
-                  : cached?.categories ?? [],
-              capabilities:
-                meta.capabilities?.length
-                  ? meta.capabilities
-                  : cached?.capabilities ?? [],
-            };
-
-            result[id] = merged;
-            if (
-              !isPlaceholderName(merged.name) ||
-              !isPlaceholderDescription(merged.description) ||
-              merged.image
-            ) {
-              setCachedDisplayMeta(id, merged);
-            }
-          } catch {
-            const cached = getCachedDisplayMeta(id);
-            if (cached) result[id] = cached;
-          }
-        })
-      );
-
-      return result;
+    queryKey: ["zenthra", "identity-meta-v3", arcTestnet.id, idsKey],
+    queryFn: async () => {
+      const map = await fetchIdentityDisplayMeta(agentIds);
+      // Serialize as plain object for React Query stability
+      const obj: Record<string, DisplayMeta> = {};
+      map.forEach((meta, id) => {
+        obj[String(id)] = meta;
+      });
+      return obj;
     },
-    enabled: Boolean(publicClient) && agentIds.length > 0,
-    staleTime: 60_000,
-    gcTime: 10 * 60_000,
-    retry: 1,
+    enabled: agentIds.length > 0,
+    staleTime: 30_000,
+    gcTime: 15 * 60_000,
+    retry: 2,
+    refetchOnMount: true,
   });
 
   const metaById = useMemo(() => {
@@ -132,37 +62,28 @@ export function useIdentityMetadata(agentIds: bigint[]) {
       for (const [idStr, meta] of Object.entries(live)) {
         const id = Number(idStr);
         if (!Number.isFinite(id)) continue;
-        const prev = map.get(id);
-        map.set(id, {
-          name:
-            !isPlaceholderName(meta.name)
-              ? meta.name
-              : prev?.name || meta.name,
-          description:
-            !isPlaceholderDescription(meta.description)
-              ? meta.description
-              : prev?.description || meta.description,
-          image: meta.image || prev?.image,
-          categories:
-            meta.categories?.length
-              ? meta.categories
-              : prev?.categories ?? [],
-          capabilities:
-            meta.capabilities?.length
-              ? meta.capabilities
-              : prev?.capabilities ?? [],
-        });
+        map.set(id, meta);
       }
     }
     return map;
   }, [cachedSeed, metaQuery.data]);
 
+  const hasAnyName = useMemo(() => {
+    for (const meta of metaById.values()) {
+      if (meta.name && !/^Agent\s*#/i.test(meta.name)) return true;
+    }
+    return false;
+  }, [metaById]);
+
   return {
     metaById,
+    /** True only while first fetch is in-flight and we have no cached names */
     isLoading:
       agentIds.length > 0 &&
       metaQuery.isLoading &&
+      !hasAnyName &&
       cachedSeed.size === 0,
+    isFetching: metaQuery.isFetching,
     refetch: async () => {
       await metaQuery.refetch();
     },

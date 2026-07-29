@@ -36,19 +36,20 @@ function resolveAgent(id: string, listed: Agent[]): Agent | null {
 
   if (!local && !fromCurator) return null;
 
-  const name = pickDisplayName(numeric, local?.name, fromCurator?.name);
+  // Prefer Identity Registry / curator-enriched fields (works for all users)
+  const name = pickDisplayName(numeric, fromCurator?.name, local?.name);
   const description = pickDisplayDescription(
-    local?.description,
-    fromCurator?.description
+    fromCurator?.description,
+    local?.description
   );
 
   return {
-    ...fromCurator,
     ...local,
+    ...fromCurator,
     id: numeric,
     name,
     description,
-    image: local?.image || fromCurator?.image,
+    image: fromCurator?.image || local?.image,
     capabilities:
       fromCurator?.capabilities?.length
         ? fromCurator.capabilities
