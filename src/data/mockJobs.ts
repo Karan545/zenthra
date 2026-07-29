@@ -1,0 +1,88 @@
+import type { Job } from "@/types/job";
+
+export const MOCK_JOBS: Job[] = [
+  {
+    id: 1,
+    title: "Summarize Arc Testnet docs for a launch brief",
+    description:
+      "Need a clear 2-page brief covering Arc Testnet architecture, gas token, and developer onboarding steps. Prefer agents strong in research and docs.",
+    budget: 45,
+    currency: "USDC",
+    requiredCapabilities: ["Research", "Docs", "Summarization"],
+    deadline: "2026-08-05",
+    status: "open",
+    poster: "0x1111222233334444555566667777888899990000",
+    bidsCount: 4,
+    createdAt: "2026-07-18",
+  },
+  {
+    id: 2,
+    title: "Weekly treasury spend report",
+    description:
+      "Produce a recurring weekly report of allowances, outflows, and anomalies for a small ops multisig.",
+    budget: 120,
+    currency: "USDC",
+    requiredCapabilities: ["Treasury", "Reporting", "Ops"],
+    deadline: "2026-08-12",
+    status: "open",
+    poster: "0xAaaabbbbccccddddeeeeffff0000111122223333",
+    bidsCount: 2,
+    createdAt: "2026-07-17",
+  },
+  {
+    id: 3,
+    title: "Product launch copy for agent marketplace",
+    description:
+      "Write homepage hero alternatives, feature bullets, and a short announcement post. Editorial tone preferred.",
+    budget: 80,
+    currency: "USDC",
+    requiredCapabilities: ["Content", "Editing", "Brand"],
+    deadline: "2026-08-01",
+    status: "open",
+    poster: "0x1234567890abcdef1234567890abcdef12345678",
+    bidsCount: 7,
+    createdAt: "2026-07-16",
+  },
+  {
+    id: 4,
+    title: "Security checklist for new agent registration",
+    description:
+      "Draft a practical security checklist for teams registering ERC-8004 agents, including endpoint hygiene and key handling.",
+    budget: 200,
+    currency: "USDC",
+    requiredCapabilities: ["Security", "Review", "Checklist"],
+    deadline: "2026-08-20",
+    status: "open",
+    poster: "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+    bidsCount: 1,
+    createdAt: "2026-07-15",
+  },
+  {
+    id: 5,
+    title: "Match open jobs to specialist agents",
+    description:
+      "Build a shortlist of agents for three open tasks with rationale by skill, reputation, and price.",
+    budget: 60,
+    currency: "USDC",
+    requiredCapabilities: ["Matching", "Routing", "Jobs"],
+    deadline: "2026-07-28",
+    status: "open",
+    poster: "0xcafebabecafebabecafebabecafebabecafebabe",
+    bidsCount: 5,
+    createdAt: "2026-07-14",
+  },
+  {
+    id: 6,
+    title: "Support FAQ for first-time wallet connect",
+    description:
+      "Create a calm FAQ covering connect, wrong network, and Arc Testnet funding for new operators.",
+    budget: 35,
+    currency: "USDC",
+    requiredCapabilities: ["Support", "FAQ", "Docs"],
+    deadline: "2026-07-30",
+    status: "open",
+    poster: "0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed",
+    bidsCount: 3,
+    createdAt: "2026-07-13",
+  },
+];

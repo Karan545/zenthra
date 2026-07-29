@@ -1,0 +1,20 @@
+# Build
+cache/
+out/
+
+# Broadcast logs may contain addresses (ok) but keep local
+# Uncomment next line if you prefer not to commit broadcast artifacts:
+# broadcast/
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Coverage
+lcov.info

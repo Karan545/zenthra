@@ -1,0 +1,304 @@
+@import "tailwindcss";
+
+/* ─── Zenthra — warm editorial design system ─── */
+:root {
+  --background: #f7f4ef;
+  --background-warm: #f8f5f0;
+  --surface: #ffffff;
+  --foreground: #1a1a1a;
+  --headline: #8b6f4e;
+  --headline-deep: #6f563c;
+  --muted: #6b6560;
+  --muted-soft: #9a948c;
+  --border: #e8e2d9;
+  --border-strong: #d9d0c4;
+  --primary: #6f563c;
+  --primary-hover: #5a4530;
+  --charcoal: #2a2724;
+  --charcoal-hover: #1a1a1a;
+  --shadow-sm: 0 1px 2px rgba(26, 26, 26, 0.04);
+  --shadow-md: 0 4px 16px rgba(26, 26, 26, 0.06);
+  --shadow-lg: 0 12px 40px rgba(26, 26, 26, 0.08);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-background-warm: var(--background-warm);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-headline: var(--headline);
+  --color-headline-deep: var(--headline-deep);
+  --color-muted: var(--muted);
+  --color-muted-soft: var(--muted-soft);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-charcoal: var(--charcoal);
+  --color-charcoal-hover: var(--charcoal-hover);
+  --font-sans: var(--font-geist-sans);
+  --font-serif: var(--font-instrument);
+  --font-mono: var(--font-geist-mono);
+  --shadow-soft-sm: var(--shadow-sm);
+  --shadow-soft-md: var(--shadow-md);
+  --shadow-soft-lg: var(--shadow-lg);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(139, 111, 78, 0.18);
+  color: var(--foreground);
+}
+
+/* Refined scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d4cdc3;
+  border-radius: 999px;
+  border: 2px solid var(--background);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c4b9ab;
+}
+
+/* Typography helpers */
+.font-display {
+  font-family: var(--font-instrument), Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+/**
+ * Main content width — wide, professional canvas with consistent side padding.
+ * Never edge-to-edge; feels full on large screens without looking sparse.
+ * Use on navbar, footer, page shells, and section wrappers.
+ */
+.page-container {
+  width: 100%;
+  max-width: 82rem; /* ~1312px base */
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .page-container {
+    max-width: 88rem; /* ~1408px */
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-container {
+    max-width: 94rem; /* ~1504px — balanced desktop */
+    padding-left: 2.75rem;
+    padding-right: 2.75rem;
+  }
+}
+
+@media (min-width: 1536px) {
+  .page-container {
+    max-width: 100rem; /* ~1600px on very large screens */
+    padding-left: 3.5rem;
+    padding-right: 3.5rem;
+  }
+}
+
+/**
+ * Shared grids — roomy card layouts that use width well on desktop.
+ */
+.agent-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .agent-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .agent-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .agent-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.category-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .category-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .category-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .category-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Soft card surface */
+.card-surface {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+/**
+ * Hero binary rain — dense scattered droplets (not matrix columns).
+ * Light center soft-mask so text stays readable; rain still fills the field.
+ */
+.hero-binary-rain {
+  /* Soften under content — never fully empty the center */
+  -webkit-mask-image: radial-gradient(
+    ellipse 55% 48% at 50% 42%,
+    rgba(0, 0, 0, 0.22) 0%,
+    rgba(0, 0, 0, 0.45) 40%,
+    rgba(0, 0, 0, 0.85) 70%,
+    #000 100%
+  );
+  mask-image: radial-gradient(
+    ellipse 55% 48% at 50% 42%,
+    rgba(0, 0, 0, 0.22) 0%,
+    rgba(0, 0, 0, 0.45) 40%,
+    rgba(0, 0, 0, 0.85) 70%,
+    #000 100%
+  );
+}
+
+.hero-binary-drop {
+  /* `top` % is relative to the hero — not the glyph (unlike translateY %) */
+  top: -5%;
+  transform: translateX(-50%);
+  animation-name: hero-binary-droplet-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: top, transform, opacity;
+}
+
+@keyframes hero-binary-droplet-fall {
+  0% {
+    top: -6%;
+    opacity: 0;
+    transform: translateX(-50%);
+  }
+  5% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    top: 106%;
+    opacity: 0;
+    transform: translateX(calc(-50% + var(--drop-drift, 0px)));
+  }
+}
+
+/* Stacked 0/1 — steps swap which digit is visible (continuous flip) */
+.hero-binary-bit {
+  position: relative;
+  display: inline-block;
+}
+
+.hero-binary-digit {
+  position: absolute;
+  left: 0;
+  top: 0;
+  animation-timing-function: steps(1, end);
+  animation-iteration-count: infinite;
+}
+
+.hero-binary-digit--zero {
+  animation-name: hero-binary-show-zero;
+}
+
+.hero-binary-digit--one {
+  animation-name: hero-binary-show-one;
+}
+
+@keyframes hero-binary-show-zero {
+  0%,
+  49.9% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes hero-binary-show-one {
+  0%,
+  49.9% {
+    opacity: 0;
+  }
+  50%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-binary-drop,
+  .hero-binary-digit {
+    animation: none;
+    display: none;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--headline);
+  outline-offset: 3px;
+}
