@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { useReducedMotion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
+import { useIsMobile, usePrefersReducedMotion } from "@/hooks/useMediaQuery";
 
 type Drop = {
   id: number;
@@ -11,12 +11,12 @@ type Drop = {
   size: number;
   opacity: number;
   drift: number;
+  bit: "0" | "1";
   flipDuration: number;
   flipDelay: number;
   startOne: boolean;
 };
 
-/** Deterministic PRNG so SSR/client match */
 function mulberry32(seed: number) {
   return function next() {
     let t = (seed += 0x6d2b79f5);
@@ -26,31 +26,27 @@ function mulberry32(seed: number) {
   };
 }
 
-/**
- * Dense field of independent bit-droplets across the full hero.
- * Not matrix columns — each glyph is its own falling drop.
- */
-function buildDrops(count: number): Drop[] {
-  const rand = mulberry32(9001);
+function buildDrops(count: number, mobile: boolean): Drop[] {
+  const rand = mulberry32(mobile ? 4242 : 9001);
   const drops: Drop[] = [];
+  const cols = mobile ? 14 : 28;
 
   for (let i = 0; i < count; i++) {
-    // Even coverage with light organic jitter (no vertical rails)
-    const col = i % 40;
-    const row = Math.floor(i / 40);
-    const baseX = ((col + 0.5) / 40) * 100;
-    const x = Math.min(99.2, Math.max(0.4, baseX + (rand() - 0.5) * 2.8));
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const baseX = ((col + 0.5) / cols) * 100;
+    const x = Math.min(99.2, Math.max(0.4, baseX + (rand() - 0.5) * 3.2));
 
     drops.push({
       id: i,
       left: `${x.toFixed(2)}%`,
-      // Spread start times so the field is always full
-      delay: (rand() * 8 + row * 0.35 + col * 0.07) % 9,
-      duration: 5.5 + rand() * 5.5,
-      size: 10 + rand() * 5,
-      opacity: 0.3 + rand() * 0.22,
-      drift: (rand() - 0.5) * 36,
-      flipDuration: 0.35 + rand() * 0.7,
+      delay: (rand() * 7 + row * 0.4 + col * 0.08) % 8,
+      duration: (mobile ? 8 : 6) + rand() * (mobile ? 6 : 5),
+      size: mobile ? 9 + rand() * 3 : 10 + rand() * 5,
+      opacity: mobile ? 0.22 + rand() * 0.14 : 0.3 + rand() * 0.2,
+      drift: (rand() - 0.5) * (mobile ? 18 : 36),
+      bit: rand() > 0.5 ? "1" : "0",
+      flipDuration: 0.4 + rand() * 0.8,
       flipDelay: rand() * 1,
       startOne: rand() > 0.5,
     });
@@ -60,15 +56,29 @@ function buildDrops(count: number): Drop[] {
 }
 
 /**
- * Professional binary rain: many scattered 0/1 droplets.
- * Soft center mask keeps headline/search readable without emptying the field.
+ * Binary rain for the hero. Lightweight on mobile (fewer drops, no bit-flip
+ * DOM animation, paused when tab hidden).
  */
 export function HeroBinaryRain() {
-  const reduceMotion = useReducedMotion();
-  // ~6 staggered “waves” of coverage across the hero
-  const drops = useMemo(() => buildDrops(240), []);
+  const isMobile = useIsMobile();
+  const reduceMotion = usePrefersReducedMotion();
+  const [visible, setVisible] = useState(true);
 
-  if (reduceMotion) return null;
+  const dropCount = isMobile ? 48 : 160;
+  const drops = useMemo(
+    () => buildDrops(dropCount, isMobile),
+    [dropCount, isMobile]
+  );
+
+  // Pause CSS animations when tab is hidden (big mobile battery/CPU win)
+  useEffect(() => {
+    const onVis = () => setVisible(document.visibilityState === "visible");
+    onVis();
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
+  if (reduceMotion || !visible) return null;
 
   return (
     <div
@@ -84,41 +94,46 @@ export function HeroBinaryRain() {
             fontSize: `${drop.size}px`,
             color: `rgba(107, 84, 58, ${drop.opacity})`,
             animationDuration: `${drop.duration}s`,
-            animationDelay: `-${drop.delay}s`, // negative = already mid-fall on load
+            animationDelay: `-${drop.delay}s`,
             ["--drop-drift" as string]: `${drop.drift}px`,
           }}
         >
-          <span
-            className="hero-binary-bit relative inline-block"
-            style={{ width: "1ch", height: "1em" }}
-          >
+          {isMobile ? (
+            // Static glyph on mobile — no dual-digit opacity flip per frame
+            <span>{drop.bit}</span>
+          ) : (
             <span
-              className={
-                drop.startOne
-                  ? "hero-binary-digit hero-binary-digit--one"
-                  : "hero-binary-digit hero-binary-digit--zero"
-              }
-              style={{
-                animationDuration: `${drop.flipDuration}s`,
-                animationDelay: `${drop.flipDelay}s`,
-              }}
+              className="hero-binary-bit relative inline-block"
+              style={{ width: "1ch", height: "1em" }}
             >
-              0
+              <span
+                className={
+                  drop.startOne
+                    ? "hero-binary-digit hero-binary-digit--one"
+                    : "hero-binary-digit hero-binary-digit--zero"
+                }
+                style={{
+                  animationDuration: `${drop.flipDuration}s`,
+                  animationDelay: `${drop.flipDelay}s`,
+                }}
+              >
+                0
+              </span>
+              <span
+                className={
+                  drop.startOne
+                    ? "hero-binary-digit hero-binary-digit--zero"
+                    : "hero-binary-digit hero-binary-digit--one"
+                }
+                style={{
+                  animationDuration: `${drop.flipDuration}s`,
+                  animationDelay: `${drop.flipDelay}s`,
+                }}
+              >
+                1
+              </span>
             </span>
-            <span
-              className={
-                drop.startOne
-                  ? "hero-binary-digit hero-binary-digit--zero"
-                  : "hero-binary-digit hero-binary-digit--one"
-              }
-              style={{
-                animationDuration: `${drop.flipDuration}s`,
-                animationDelay: `${drop.flipDelay}s`,
-              }}
-            >
-              1
-            </span>
-          </span>
+          )}
         </span>
       ))}
     </div>

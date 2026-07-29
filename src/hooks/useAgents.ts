@@ -51,11 +51,10 @@ export function useAgents(options: UseAgentsOptions = {}): UseAgentsResult {
 
   useEffect(() => {
     const onUpdate = () => setTick((n) => n + 1);
+    // Only refresh when local registrations change — not on every window focus
     window.addEventListener(AGENTS_UPDATED_EVENT, onUpdate);
-    window.addEventListener("focus", onUpdate);
     return () => {
       window.removeEventListener(AGENTS_UPDATED_EVENT, onUpdate);
-      window.removeEventListener("focus", onUpdate);
     };
   }, []);
 

@@ -224,7 +224,22 @@ body {
   animation-name: hero-binary-droplet-fall;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
-  will-change: top, transform, opacity;
+  /* Avoid permanent will-change (hurts mobile memory); compositor picks it up during anim */
+  contain: layout style;
+}
+
+@media (max-width: 767px) {
+  .hero-binary-rain {
+    /* Lighter mask composite cost on phones */
+    -webkit-mask-image: none;
+    mask-image: none;
+    opacity: 0.85;
+  }
+
+  .hero-binary-drop {
+    /* Slightly slower / calmer on mobile */
+    animation-timing-function: linear;
+  }
 }
 
 @keyframes hero-binary-droplet-fall {

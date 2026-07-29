@@ -10,6 +10,13 @@ import {
 import { arcTestnet } from "@/config/chains";
 import { getRegisteredAgents } from "@/lib/localAgents";
 import { inferCategorySlugsFromCapabilities } from "@/lib/categories";
+import {
+  isPlaceholderDescription,
+  isPlaceholderName,
+  pickDisplayDescription,
+  pickDisplayName,
+} from "@/lib/agentDisplay";
+import { setCachedDisplayMeta } from "@/lib/agentMetaCache";
 import { useIdentityMetadata } from "@/hooks/useIdentityMetadata";
 import type { Agent } from "@/types/agent";
 
@@ -54,6 +61,23 @@ export function useCuratorListings() {
       getRegisteredAgents().map((a) => [a.id, a] as const)
     );
 
+    // Seed display cache from this browser's registrations so Directory
+    // shows real names even before tokenURI RPC completes.
+    for (const local of localById.values()) {
+      if (
+        !isPlaceholderName(local.name) ||
+        !isPlaceholderDescription(local.description)
+      ) {
+        setCachedDisplayMeta(local.id, {
+          name: local.name,
+          description: local.description,
+          image: local.image,
+          categories: local.categories ?? [],
+          capabilities: local.capabilities ?? [],
+        });
+      }
+    }
+
     if (agentIds.length === 0) return [];
 
     const rows = (listingsQuery.data ?? []) as CuratorListing[];
@@ -79,26 +103,19 @@ export function useCuratorListings() {
               ? onChainMeta.categories
               : inferCategorySlugsFromCapabilities(capabilities);
 
-        // Prefer real name: local → identity metadata → fallback Agent #id
-        const name =
-          (local?.name && !local.name.startsWith("Agent #")
-            ? local.name
-            : undefined) ||
-          onChainMeta?.name ||
-          (local?.name && local.name.trim()) ||
-          `Agent #${id}`;
+        // Prefer real name/description: local registration → identity tokenURI → fallback
+        const name = pickDisplayName(
+          id,
+          local?.name,
+          onChainMeta?.name
+        );
 
-        const description =
-          (local?.description &&
-          !local.description.startsWith("Listed on Zenthra") &&
-          local.description !== "Agent listed on Zenthra."
-            ? local.description
-            : undefined) ||
-          onChainMeta?.description ||
-          local?.description ||
-          "Listed on Zenthra with a USDC stake on Arc Testnet.";
+        const description = pickDisplayDescription(
+          local?.description,
+          onChainMeta?.description
+        );
 
-        const image = local?.image || onChainMeta?.image || undefined;
+        const image = onChainMeta?.image || local?.image || undefined;
 
         return {
           id,

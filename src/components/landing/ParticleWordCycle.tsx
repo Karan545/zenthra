@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useIsMobile } from "@/hooks/useMediaQuery";
 
 /** Loop order (exact) */
 export const HERO_LOOP_WORDS = ["work", "earn", "scale", "matter"] as const;
@@ -17,6 +18,7 @@ const HOLD_MS = 2400;
 const DISSOLVE_MS = 820;
 const REFORM_MS = 980;
 const PARTICLES_PER_LETTER = 9;
+const PARTICLES_PER_LETTER_MOBILE = 3;
 
 /** Soft bronze / cream — matches headline design system */
 const PARTICLE_COLORS = [
@@ -69,11 +71,12 @@ function letterCenters(
 }
 
 function scatterParticles(
-  centers: Array<{ x: number; y: number }>
+  centers: Array<{ x: number; y: number }>,
+  perLetter = PARTICLES_PER_LETTER
 ): Particle[] {
   const out: Particle[] = [];
   centers.forEach((c, li) => {
-    for (let i = 0; i < PARTICLES_PER_LETTER; i++) {
+    for (let i = 0; i < perLetter; i++) {
       const angle = rand(0, Math.PI * 2);
       const dist = rand(32, 88);
       out.push({
@@ -94,11 +97,12 @@ function scatterParticles(
 
 function gatherParticles(
   centers: Array<{ x: number; y: number }>,
-  bounds: { w: number; h: number }
+  bounds: { w: number; h: number },
+  perLetter = PARTICLES_PER_LETTER
 ): Particle[] {
   const out: Particle[] = [];
   centers.forEach((c, li) => {
-    for (let i = 0; i < PARTICLES_PER_LETTER; i++) {
+    for (let i = 0; i < perLetter; i++) {
       out.push({
         id: `g-${li}-${i}-${Math.random().toString(36).slice(2, 9)}`,
         fromX: rand(-bounds.w * 0.25, bounds.w * 1.25),
@@ -130,6 +134,13 @@ export function ParticleWordCycle({
   align = "start",
 }: ParticleWordCycleProps) {
   const reduceMotion = useReducedMotion();
+  const isMobile = useIsMobile();
+  // Mobile: light crossfade only (particles are expensive on low-power GPUs)
+  const lightMode = Boolean(reduceMotion || isMobile);
+  const perLetter = isMobile
+    ? PARTICLES_PER_LETTER_MOBILE
+    : PARTICLES_PER_LETTER;
+
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>("visible");
   const [particles, setParticles] = useState<Particle[]>([]);
@@ -151,18 +162,18 @@ export function ParticleWordCycle({
     return letterCenters(letterRefs.current, container);
   }, []);
 
-  // Reduced motion: gentle opacity cycle, no particles
+  // Light mode (mobile / reduced motion): simple opacity cycle, no particles
   useEffect(() => {
-    if (!reduceMotion) return;
+    if (!lightMode) return;
     const t = window.setInterval(() => {
       setIndex((i) => (i + 1) % HERO_LOOP_WORDS.length);
     }, HOLD_MS + 500);
     return () => window.clearInterval(t);
-  }, [reduceMotion]);
+  }, [lightMode]);
 
-  // Particle state machine
+  // Full particle state machine (desktop only)
   useEffect(() => {
-    if (reduceMotion) return;
+    if (lightMode) return;
 
     if (phase === "visible") {
       setShowLetters(true);
@@ -173,7 +184,7 @@ export function ParticleWordCycle({
 
     if (phase === "dissolving") {
       const centers = measureCenters();
-      if (centers.length) setParticles(scatterParticles(centers));
+      if (centers.length) setParticles(scatterParticles(centers, perLetter));
       const fade = window.requestAnimationFrame(() => setShowLetters(false));
       const t = window.setTimeout(() => {
         setIndex((i) => (i + 1) % HERO_LOOP_WORDS.length);
@@ -187,7 +198,6 @@ export function ParticleWordCycle({
 
     if (phase === "reforming") {
       setShowLetters(false);
-      // Reveal letters as particles finish converging
       const showT = window.setTimeout(
         () => setShowLetters(true),
         Math.floor(REFORM_MS * 0.58)
@@ -201,11 +211,11 @@ export function ParticleWordCycle({
         window.clearTimeout(t);
       };
     }
-  }, [phase, reduceMotion, measureCenters]);
+  }, [phase, lightMode, measureCenters, perLetter]);
 
   // Spawn gather particles after next word letters mount (coords relative to container)
   useLayoutEffect(() => {
-    if (reduceMotion || phase !== "reforming") return;
+    if (lightMode || phase !== "reforming") return;
     const container = containerRef.current;
     if (!container) return;
 
@@ -213,12 +223,16 @@ export function ParticleWordCycle({
     if (!centers.length) return;
 
     setParticles(
-      gatherParticles(centers, {
-        w: container.offsetWidth || 140,
-        h: container.offsetHeight || 52,
-      })
+      gatherParticles(
+        centers,
+        {
+          w: container.offsetWidth || 140,
+          h: container.offsetHeight || 52,
+        },
+        perLetter
+      )
     );
-  }, [phase, index, reduceMotion, measureCenters]);
+  }, [phase, index, lightMode, measureCenters, perLetter]);
 
   useEffect(() => {
     letterRefs.current = letterRefs.current.slice(0, word.length);
@@ -227,7 +241,7 @@ export function ParticleWordCycle({
   const justify =
     align === "center" ? "justify-center" : "justify-start";
 
-  if (reduceMotion) {
+  if (lightMode) {
     return (
       <span
         className={`relative inline-block font-display text-headline ${className}`}

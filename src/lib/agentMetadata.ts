@@ -22,25 +22,73 @@ export function resolveUri(uri: string | undefined | null): string | undefined {
   return trimmed;
 }
 
+/** Decode base64 to UTF-8 string (handles agent registration data URIs). */
+function decodeBase64Utf8(b64: string): string {
+  const cleaned = b64.replace(/\s/g, "");
+  if (typeof Buffer !== "undefined") {
+    try {
+      return Buffer.from(cleaned, "base64").toString("utf8");
+    } catch {
+      // fall through
+    }
+  }
+  if (typeof atob === "function") {
+    const binary = atob(cleaned);
+    // Prefer TextDecoder for proper UTF-8 from registration files
+    if (typeof TextDecoder !== "undefined") {
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return new TextDecoder("utf-8").decode(bytes);
+    }
+    // Legacy path used by some btoa(unescape(encodeURIComponent)) payloads
+    try {
+      return decodeURIComponent(
+        Array.from(binary, (c) => `%${c.charCodeAt(0).toString(16).padStart(2, "0")}`).join(
+          ""
+        )
+      );
+    } catch {
+      return binary;
+    }
+  }
+  return "";
+}
+
 function parseDataUriJson(uri: string): AgentMetadata | null {
   try {
-    if (uri.startsWith("data:application/json;base64,")) {
-      const b64 = uri.slice("data:application/json;base64,".length);
-      const json =
-        typeof atob === "function"
-          ? atob(b64)
-          : Buffer.from(b64, "base64").toString("utf8");
+    const trimmed = uri.trim();
+    // data:application/json;base64,...  (optional charset)
+    const b64Match = trimmed.match(
+      /^data:application\/json(?:;[^,]*?)?;base64,([\s\S]+)$/i
+    );
+    if (b64Match?.[1]) {
+      const json = decodeBase64Utf8(b64Match[1]);
       return JSON.parse(json) as AgentMetadata;
     }
-    if (uri.startsWith("data:application/json,")) {
-      const raw = decodeURIComponent(uri.slice("data:application/json,".length));
-      return JSON.parse(raw) as AgentMetadata;
-    }
-    if (uri.startsWith("data:application/json;utf8,")) {
+    if (trimmed.startsWith("data:application/json,")) {
       const raw = decodeURIComponent(
-        uri.slice("data:application/json;utf8,".length)
+        trimmed.slice("data:application/json,".length)
       );
       return JSON.parse(raw) as AgentMetadata;
+    }
+    if (trimmed.startsWith("data:application/json;utf8,")) {
+      const raw = decodeURIComponent(
+        trimmed.slice("data:application/json;utf8,".length)
+      );
+      return JSON.parse(raw) as AgentMetadata;
+    }
+    // Generic data:application/json;charset=utf-8,...
+    const plainMatch = trimmed.match(
+      /^data:application\/json(?:;charset=[^,]+)?,([\s\S]+)$/i
+    );
+    if (plainMatch?.[1] && !trimmed.toLowerCase().includes(";base64,")) {
+      try {
+        return JSON.parse(decodeURIComponent(plainMatch[1])) as AgentMetadata;
+      } catch {
+        return JSON.parse(plainMatch[1]) as AgentMetadata;
+      }
     }
   } catch {
     return null;

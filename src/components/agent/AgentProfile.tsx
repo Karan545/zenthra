@@ -12,6 +12,10 @@ import {
   getRegisteredAgents,
 } from "@/lib/localAgents";
 import { categoryNamesFromSlugs } from "@/lib/categories";
+import {
+  pickDisplayDescription,
+  pickDisplayName,
+} from "@/lib/agentDisplay";
 import { shortenAddress } from "@/lib/format";
 import type { Agent } from "@/types/agent";
 
@@ -20,9 +24,7 @@ interface AgentProfileProps {
 }
 
 function displayName(agent: Pick<Agent, "id" | "name">): string {
-  const n = agent.name?.trim();
-  if (n && !/^Agent #\d+$/i.test(n)) return n;
-  return `Agent #${agent.id}`;
+  return pickDisplayName(agent.id, agent.name);
 }
 
 function resolveAgent(id: string, listed: Agent[]): Agent | null {
@@ -34,22 +36,11 @@ function resolveAgent(id: string, listed: Agent[]): Agent | null {
 
   if (!local && !fromCurator) return null;
 
-  const name =
-    (local?.name && !/^Agent #\d+$/i.test(local.name) ? local.name : undefined) ||
-    (fromCurator?.name && !/^Agent #\d+$/i.test(fromCurator.name)
-      ? fromCurator.name
-      : undefined) ||
-    `Agent #${numeric}`;
-
-  const description =
-    (local?.description &&
-    !local.description.startsWith("Listed on Zenthra") &&
-    local.description !== "Agent listed on Zenthra."
-      ? local.description
-      : undefined) ||
-    fromCurator?.description ||
-    local?.description ||
-    "Listed on Zenthra.";
+  const name = pickDisplayName(numeric, local?.name, fromCurator?.name);
+  const description = pickDisplayDescription(
+    local?.description,
+    fromCurator?.description
+  );
 
   return {
     ...fromCurator,
