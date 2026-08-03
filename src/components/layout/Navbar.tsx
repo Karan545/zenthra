@@ -15,10 +15,13 @@ function isNavActive(pathname: string, href: string) {
     return false;
   }
   if (href === "/") {
+    return pathname === "/";
+  }
+  if (href === "/directory") {
     return (
-      pathname === "/" ||
+      pathname === "/directory" ||
       pathname.startsWith("/category") ||
-      pathname.startsWith("/directory")
+      pathname.startsWith("/agent")
     );
   }
   return pathname === href || pathname.startsWith(`${href}/`);

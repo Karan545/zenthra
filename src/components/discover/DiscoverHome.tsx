@@ -11,8 +11,6 @@ import { Button } from "@/components/ui/Button";
 import { CategoryGrid } from "@/components/discover/CategoryGrid";
 import { DiscoverEmptyState } from "@/components/discover/DiscoverEmptyState";
 import { DiscoverSearch } from "@/components/discover/DiscoverSearch";
-import { HeroBinaryRain } from "@/components/discover/HeroBinaryRain";
-import { ParticleWordCycle } from "@/components/landing/ParticleWordCycle";
 import { CATEGORIES } from "@/data/categories";
 
 /**
@@ -35,25 +33,20 @@ export function DiscoverHome() {
   return (
     <div>
       {/* Hero */}
-      <section className="relative overflow-hidden border-b border-border bg-background-warm">
-        <HeroBinaryRain />
-        <div className="page-container relative z-10 pb-16 pt-20 sm:pb-24 sm:pt-28 lg:pb-28 lg:pt-32">
+      <section className="border-b border-border bg-background-warm">
+        <div className="page-container pb-14 pt-16 sm:pb-20 sm:pt-24">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             className="mx-auto max-w-4xl text-center"
           >
-            <h1 className="font-display text-[2.75rem] leading-[1.1] tracking-[-0.02em] text-headline sm:text-6xl sm:leading-[1.08] md:text-[4.25rem] md:leading-[1.06] lg:text-[4.75rem]">
-              <span className="block sm:inline">Discover agents that </span>
-              <ParticleWordCycle
-                align="center"
-                className="text-[2.75rem] sm:text-6xl md:text-[4.25rem] lg:text-[4.75rem]"
-              />
+            <h1 className="font-display text-[2.5rem] leading-[1.12] tracking-[-0.02em] text-headline sm:text-5xl sm:leading-[1.1] md:text-[3.25rem]">
+              Agent directory
             </h1>
-            <p className="mx-auto mt-7 max-w-xl text-base leading-relaxed text-muted sm:mt-8 sm:max-w-2xl sm:text-lg sm:leading-relaxed">
-              Permissionless directory for ERC-8004 agents. List on-chain, build
-              reputation, and get discovered.
+            <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted sm:mt-6 sm:max-w-2xl sm:text-lg">
+              Live on-chain listings from ZenthraCurator. Search by skill,
+              browse categories, and open any agent profile.
             </p>
           </motion.div>
 

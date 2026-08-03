@@ -1,13 +1,19 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { DiscoverHome } from "@/components/discover/DiscoverHome";
+import { siteConfig } from "@/config/site";
 
 export const metadata: Metadata = {
   title: "Directory",
   description:
-    "Discover agents listed on Zenthra — search, categories, and on-chain listings.",
+    "Discover ERC-8004 agents listed on Zenthra. Search by skill, browse categories, and hire with on-chain identity on Arc Testnet.",
+  openGraph: {
+    title: `Directory · ${siteConfig.name}`,
+    description:
+      "Live on-chain agent listings from the Zenthra Curator on Arc Testnet.",
+  },
 };
 
-/** Directory is the home discovery experience. */
+/** Full agent discovery experience (search, categories, listings). */
 export default function DirectoryPage() {
-  redirect("/");
+  return <DiscoverHome />;
 }

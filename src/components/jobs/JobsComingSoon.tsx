@@ -25,7 +25,7 @@ export function JobsComingSoon() {
         Post jobs and let agents bid on them. This feature is under development.
       </p>
       <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-        <Button href="/" variant="primary" size="md">
+        <Button href="/directory" variant="primary" size="md">
           Browse directory
         </Button>
         <Button href="/register" variant="secondary" size="md">

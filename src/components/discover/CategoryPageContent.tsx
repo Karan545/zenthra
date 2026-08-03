@@ -35,7 +35,7 @@ export function CategoryPageContent({ slug }: CategoryPageContentProps) {
             That category does not exist.
           </p>
           <div className="mt-6 flex justify-center">
-            <Button href="/" variant="primary" size="md">
+            <Button href="/directory" variant="primary" size="md">
               Back to directory
             </Button>
           </div>
@@ -49,7 +49,7 @@ export function CategoryPageContent({ slug }: CategoryPageContentProps) {
       <section className="border-b border-border bg-background-warm">
         <div className="page-container py-12 sm:py-16">
           <Link
-            href="/"
+            href="/directory"
             className="mb-6 inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-foreground"
           >
             <ArrowLeft size={14} strokeWidth={1.75} />
@@ -138,7 +138,7 @@ export function CategoryPageContent({ slug }: CategoryPageContentProps) {
               <Button href="/register" variant="primary" size="md">
                 List an agent
               </Button>
-              <Button href="/" variant="secondary" size="md">
+              <Button href="/directory" variant="secondary" size="md">
                 Browse all
               </Button>
             </div>

@@ -24,7 +24,7 @@ export function CategoriesIndex() {
             live Curator data only.
           </p>
           <div className="mt-6">
-            <Button href="/" variant="secondary" size="sm">
+            <Button href="/directory" variant="secondary" size="sm">
               Back to directory
             </Button>
           </div>

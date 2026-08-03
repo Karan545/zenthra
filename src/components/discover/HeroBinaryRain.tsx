@@ -55,16 +55,28 @@ function buildDrops(count: number, mobile: boolean): Drop[] {
   return drops;
 }
 
+interface HeroBinaryRainProps {
+  /** Multiplier for glyph opacity (homepage uses lower for subtlety). */
+  opacityScale?: number;
+  /** Cap drop count (defaults: 48 mobile / 160 desktop). */
+  maxDrops?: number;
+}
+
 /**
  * Binary rain for the hero. Lightweight on mobile (fewer drops, no bit-flip
  * DOM animation, paused when tab hidden).
  */
-export function HeroBinaryRain() {
+export function HeroBinaryRain({
+  opacityScale = 1,
+  maxDrops,
+}: HeroBinaryRainProps) {
   const isMobile = useIsMobile();
   const reduceMotion = usePrefersReducedMotion();
   const [visible, setVisible] = useState(true);
 
-  const dropCount = isMobile ? 48 : 160;
+  const defaultCount = isMobile ? 48 : 160;
+  const dropCount =
+    typeof maxDrops === "number" ? Math.min(maxDrops, defaultCount) : defaultCount;
   const drops = useMemo(
     () => buildDrops(dropCount, isMobile),
     [dropCount, isMobile]
@@ -92,7 +104,7 @@ export function HeroBinaryRain() {
           style={{
             left: drop.left,
             fontSize: `${drop.size}px`,
-            color: `rgba(107, 84, 58, ${drop.opacity})`,
+            color: `rgba(107, 84, 58, ${Math.min(0.55, drop.opacity * opacityScale)})`,
             animationDuration: `${drop.duration}s`,
             animationDelay: `-${drop.delay}s`,
             ["--drop-drift" as string]: `${drop.drift}px`,

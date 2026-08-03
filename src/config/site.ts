@@ -14,6 +14,7 @@ export const siteConfig = {
   /** Primary navigation (Navbar) */
   nav: [
     { label: "Home", href: "/" },
+    { label: "Directory", href: "/directory" },
     { label: "Categories", href: "/categories" },
     { label: "Jobs", href: "/jobs" },
     { label: "My agents", href: "/my-agents" },

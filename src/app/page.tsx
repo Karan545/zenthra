@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DiscoverHome } from "@/components/discover/DiscoverHome";
+import { HomePage } from "@/components/home/HomePage";
 import { siteConfig } from "@/config/site";
 
 export const metadata: Metadata = {
@@ -9,6 +9,6 @@ export const metadata: Metadata = {
   description: siteConfig.description,
 };
 
-export default function HomePage() {
-  return <DiscoverHome />;
+export default function Page() {
+  return <HomePage />;
 }

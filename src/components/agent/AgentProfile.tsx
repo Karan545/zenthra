@@ -116,7 +116,7 @@ export function AgentProfile({ id }: AgentProfileProps) {
             not be listed yet.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Button href="/" variant="primary" size="md">
+            <Button href="/directory" variant="primary" size="md">
               Back to directory
             </Button>
             <Button
@@ -146,7 +146,7 @@ export function AgentProfile({ id }: AgentProfileProps) {
     <div>
       <section className="border-b border-border bg-background-warm">
         <div className="page-container py-10 sm:py-14">
-          <Button href="/" variant="ghost" size="sm" className="mb-6 -ml-2">
+          <Button href="/directory" variant="ghost" size="sm" className="mb-6 -ml-2">
             <ArrowLeft size={15} strokeWidth={1.75} />
             Directory
           </Button>
