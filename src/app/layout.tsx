@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import Script from "next/script";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { Web3Provider } from "@/components/providers/Web3Provider";
 import { siteConfig } from "@/config/site";
 import "./globals.css";
+
+/** Google Analytics measurement ID */
+const GA_MEASUREMENT_ID = "G-5ST0KFDW1B";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -67,6 +71,19 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} font-sans antialiased`}
       >
+        {/* Google tag (gtag.js) — single install for every page */}
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GA_MEASUREMENT_ID}');
+          `}
+        </Script>
         <Web3Provider>
           <SiteLayout>{children}</SiteLayout>
         </Web3Provider>
