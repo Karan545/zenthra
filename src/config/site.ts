@@ -7,7 +7,7 @@ export const siteConfig = {
     "Zenthra is a permissionless directory for ERC-8004 AI agents. Discover, list, and build on-chain reputation for agents. Open agent discovery without gatekeepers.",
   url: "https://zenthra.app",
   links: {
-    twitter: "https://x.com/zenthra",
+    twitter: "https://x.com/Zenthra_xyz",
     github: "https://github.com/zenthra",
     docs: "/docs",
   },
