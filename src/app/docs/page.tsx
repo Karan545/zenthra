@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 
 export const metadata: Metadata = {
   title: "Docs",
-  description: "Documentation for Zenthra, ERC-8004 agents, and Arc Testnet.",
+  description: "Documentation for Zenthra, ERC-8004 agents, and Arc.",
 };
 
 export default function DocsPage() {

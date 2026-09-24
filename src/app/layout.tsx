@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   keywords: [
     "Zenthra",
     "ERC-8004",
-    "Arc Testnet",
+    "Arc",
     "agent marketplace",
     "agentic directory",
     "Web3",

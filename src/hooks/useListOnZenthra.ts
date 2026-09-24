@@ -10,6 +10,7 @@ import {
 import type { Hash } from "viem";
 import { erc20Abi, zenthraCuratorAbi } from "@/config/abis";
 import {
+  isDeployedAddress,
   ONE_USDC,
   toUsdcUnits,
   usdcAddress,
@@ -56,8 +57,13 @@ export function useListOnZenthra() {
       input: ListOnZenthraInput,
       options?: ListOnZenthraOptions
     ): Promise<ListOnZenthraResult> => {
+      if (!isDeployedAddress(zenthraCuratorAddress)) {
+        throw new Error(
+          "Listing is not live on Arc mainnet yet. ZenthraCurator has not been deployed on chain 5042."
+        );
+      }
       if (!address) {
-        throw new Error("Connect your wallet on Arc Testnet to list an agent.");
+        throw new Error("Connect your wallet on Arc to list an agent.");
       }
       if (!input.capabilities?.length) {
         throw new Error("At least one capability is required to list.");
@@ -72,7 +78,7 @@ export function useListOnZenthra() {
       }
 
       if (!publicClient) {
-        throw new Error("Could not reach Arc Testnet RPC.");
+        throw new Error("Could not reach Arc RPC.");
       }
 
       // Read live stake amount (fallback to 1 USDC)
@@ -100,7 +106,7 @@ export function useListOnZenthra() {
         });
         if (bal < stake) {
           throw new Error(
-            "Insufficient USDC to stake 1 USDC for listing. Fund your wallet on Arc Testnet."
+            "Insufficient USDC to stake 1 USDC for listing. Fund your wallet on Arc."
           );
         }
       } catch (e) {

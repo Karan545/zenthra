@@ -159,7 +159,7 @@ export function mergeAgentCatalog(
         description:
           local.description ||
           prev?.description ||
-          "Registered on Arc Testnet.",
+          "Registered on Arc.",
       });
     }
   }

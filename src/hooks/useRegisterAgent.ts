@@ -29,7 +29,7 @@ export type RegisterOnChainOptions = {
 };
 
 /**
- * On-chain IdentityRegistry.register(agentURI) on Arc Testnet.
+ * On-chain IdentityRegistry.register(agentURI) on Arc.
  * Waits for receipt and parses the minted agentId from Transfer logs.
  */
 export function useRegisterAgent() {
@@ -79,7 +79,7 @@ export function useRegisterAgent() {
 
       if (!publicClient) {
         throw new Error(
-          "Could not reach Arc Testnet RPC. Check your connection and try again."
+          "Could not reach Arc RPC. Check your connection and try again."
         );
       }
 
@@ -95,7 +95,7 @@ export function useRegisterAgent() {
 
       if (receipt.status === "reverted") {
         throw new Error(
-          "Transaction reverted on Arc Testnet. The agent was not registered."
+          "Transaction reverted on Arc. The agent was not registered."
         );
       }
 

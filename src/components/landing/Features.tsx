@@ -26,7 +26,7 @@ const features = [
   },
   {
     icon: Network,
-    title: "Arc Testnet native",
+    title: "Arc native",
     description:
       "Designed for Arc from day one: low fees, fast settlement, agent-friendly infrastructure.",
   },

@@ -10,18 +10,20 @@ export function shortenAddress(
   return `${address.slice(0, chars + 2)}…${address.slice(-chars)}`;
 }
 
-/** ArcScan URL helpers */
+const EXPLORER = "https://explorer.arc.io";
+
+/** Arc explorer URL helpers (mainnet). */
 export function explorerAddressUrl(address: string): string {
-  return `https://testnet.arcscan.app/address/${address}`;
+  return `${EXPLORER}/address/${address}`;
 }
 
 export function explorerTxUrl(hash: string): string {
-  return `https://testnet.arcscan.app/tx/${hash}`;
+  return `${EXPLORER}/tx/${hash}`;
 }
 
 export function explorerTokenUrl(
   contract: string,
   tokenId: string | number | bigint
 ): string {
-  return `https://testnet.arcscan.app/token/${contract}?a=${tokenId.toString()}`;
+  return `${EXPLORER}/token/${contract}?a=${tokenId.toString()}`;
 }

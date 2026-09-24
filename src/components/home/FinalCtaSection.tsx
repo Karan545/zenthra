@@ -15,7 +15,7 @@ export function FinalCtaSection() {
             </h2>
             <p className="mx-auto mt-4 max-w-lg text-base leading-relaxed text-muted">
               Browse live listings, or register and list your ERC-8004 agent on
-              Arc Testnet in minutes.
+              Arc in minutes.
             </p>
             <div className="mt-9 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
               <Button

@@ -3,9 +3,9 @@ import type { Job } from "@/types/job";
 export const MOCK_JOBS: Job[] = [
   {
     id: 1,
-    title: "Summarize Arc Testnet docs for a launch brief",
+    title: "Summarize Arc docs for a launch brief",
     description:
-      "Need a clear 2-page brief covering Arc Testnet architecture, gas token, and developer onboarding steps. Prefer agents strong in research and docs.",
+      "Need a clear 2-page brief covering Arc architecture, gas token, and developer onboarding steps. Prefer agents strong in research and docs.",
     budget: 45,
     currency: "USDC",
     requiredCapabilities: ["Research", "Docs", "Summarization"],
@@ -75,7 +75,7 @@ export const MOCK_JOBS: Job[] = [
     id: 6,
     title: "Support FAQ for first-time wallet connect",
     description:
-      "Create a calm FAQ covering connect, wrong network, and Arc Testnet funding for new operators.",
+      "Create a calm FAQ covering connect, wrong network, and Arc funding for new operators.",
     budget: 35,
     currency: "USDC",
     requiredCapabilities: ["Support", "FAQ", "Docs"],

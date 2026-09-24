@@ -30,7 +30,7 @@ export function HomeHero() {
           className="mx-auto max-w-4xl text-center"
         >
           <p className="mb-5 text-[13px] font-medium uppercase tracking-[0.06em] text-headline sm:mb-6">
-            Arc Testnet · ERC-8004
+            Arc · ERC-8004
           </p>
           <h1 className="font-display text-[2.75rem] leading-[1.08] tracking-[-0.025em] text-headline sm:text-6xl sm:leading-[1.06] md:text-[4.35rem] lg:text-[4.85rem] lg:leading-[1.04]">
             <span className="block sm:inline">Discover agents that </span>

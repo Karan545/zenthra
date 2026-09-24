@@ -1,4 +1,5 @@
-# Deploy ZenthraCurator to Arc Testnet (Windows PowerShell)
+# Deploy ZenthraCurator to Arc mainnet (Windows PowerShell)
+# Chain id 5042. This spends real USDC for gas.
 # Usage:
 #   1. Copy .env.example -> .env and set PRIVATE_KEY (when ready)
 #   2. .\scripts\deploy-arc-testnet.ps1
@@ -17,8 +18,8 @@ $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
 Write-Host ""
-Write-Host "=== Deploy ZenthraCurator -> Arc Testnet ===" -ForegroundColor Cyan
-Write-Host "RPC: https://rpc.testnet.arc.network  |  chainId: 5042002"
+Write-Host "=== Deploy ZenthraCurator -> Arc mainnet ===" -ForegroundColor Cyan
+Write-Host "RPC: https://rpc.mainnet.arc.io  |  chainId: 5042"
 Write-Host ""
 
 # Load .env if present
@@ -58,7 +59,7 @@ if ($env:PRIVATE_KEY) {
   try {
     $addr = cast wallet address --private-key $env:PRIVATE_KEY
     Write-Host "Deployer address: $addr" -ForegroundColor Green
-    Write-Host "Check balance on https://testnet.arcscan.app/address/$addr"
+    Write-Host "Check balance on https://explorer.arc.io/address/$addr"
   } catch {
     Write-Host "Could not derive address from PRIVATE_KEY — check the key format (0x...)." -ForegroundColor Red
     exit 1
@@ -69,12 +70,12 @@ Write-Host ""
 if ($DryRun) {
   Write-Host "DRY RUN (simulation only — no broadcast)..." -ForegroundColor Yellow
   forge script script/DeployZenthraCurator.s.sol:DeployZenthraCurator `
-    --rpc-url https://rpc.testnet.arc.network `
+    --rpc-url https://rpc.mainnet.arc.io `
     -vvvv
 } else {
   Write-Host "Broadcasting deployment..." -ForegroundColor Yellow
   forge script script/DeployZenthraCurator.s.sol:DeployZenthraCurator `
-    --rpc-url https://rpc.testnet.arc.network `
+    --rpc-url https://rpc.mainnet.arc.io `
     --broadcast `
     --private-key $env:PRIVATE_KEY `
     -vvvv

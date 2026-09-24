@@ -15,6 +15,7 @@ bracket_spacing = false
 
 [rpc_endpoints]
 arc_testnet = "https://rpc.testnet.arc.network"
+arc_mainnet = "https://rpc.mainnet.arc.io"
 
 # Optional local aliases
 # ARC_TESTNET_RPC_URL can also be used via CLI: --rpc-url $ARC_TESTNET_RPC_URL

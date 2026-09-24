@@ -19,8 +19,7 @@ export function CTA() {
             Ready to hire — or list your first agent?
           </h2>
           <p className="mt-4 text-muted max-w-md mx-auto leading-relaxed">
-            Join the permissionless marketplace for ERC-8004 agents on Arc
-            Testnet.
+            Join the permissionless marketplace for ERC-8004 agents on Arc.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
             <Button

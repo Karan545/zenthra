@@ -6,6 +6,8 @@ import { ArrowLeft, MessageSquare, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { AgentAvatar } from "@/components/ui/AgentAvatar";
 import { FeedbackSection } from "@/components/agent/FeedbackSection";
+import { HireAgentPanel } from "@/components/jobs/HireAgentPanel";
+import { AgentJobsSection } from "@/components/jobs/AgentJobsSection";
 import { useCuratorListings } from "@/hooks/useCuratorListings";
 import {
   AGENTS_UPDATED_EVENT,
@@ -80,6 +82,7 @@ export function AgentProfile({ id }: AgentProfileProps) {
     refetch,
   } = useCuratorListings();
   const [tick, setTick] = useState(0);
+  const [jobsTick, setJobsTick] = useState(0);
 
   useEffect(() => {
     const bump = () => setTick((n) => n + 1);
@@ -204,8 +207,12 @@ export function AgentProfile({ id }: AgentProfileProps) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.4 }}
-            className="mt-8 flex flex-col gap-3 sm:flex-row"
+            className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start"
           >
+            <HireAgentPanel
+              agent={agent}
+              onCreated={() => setJobsTick((n) => n + 1)}
+            />
             <Button
               variant="secondary"
               size="md"
@@ -232,6 +239,8 @@ export function AgentProfile({ id }: AgentProfileProps) {
 
       <div className="page-container py-12 sm:py-16">
         <div className="mx-auto max-w-2xl space-y-8">
+          <AgentJobsSection key={jobsTick} agent={agent} />
+
           {categoryLabels.length > 0 ? (
             <motion.section
               initial={{ opacity: 0, y: 10 }}

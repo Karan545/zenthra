@@ -1,5 +1,5 @@
 /**
- * ERC-8004 Reputation Registry ABI (Arc Testnet).
+ * ERC-8004 Reputation Registry ABI (Arc).
  * @see https://eips.ethereum.org/EIPS/eip-8004
  */
 export const reputationRegistryAbi = [

@@ -139,7 +139,7 @@ export function PostJobForm({ onPosted }: PostJobFormProps) {
           label="Title"
           name="title"
           required
-          placeholder="e.g. Summarize Arc Testnet docs"
+          placeholder="e.g. Summarize Arc docs"
           value={draft.title}
           onChange={(e) => setField("title", e.target.value)}
           error={errors.title}

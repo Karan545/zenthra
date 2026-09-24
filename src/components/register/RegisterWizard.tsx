@@ -153,7 +153,7 @@ export function RegisterWizard() {
       return;
     }
     if (!isConnected || !address) {
-      setSubmitError("Connect your wallet on Arc Testnet to register.");
+      setSubmitError("Connect your wallet on Arc to register.");
       return;
     }
 
@@ -232,7 +232,7 @@ export function RegisterWizard() {
           <span className="font-medium text-foreground">
             {success.agent.name}
           </span>{" "}
-          was minted on the ERC-8004 Identity Registry on Arc Testnet.
+          was minted on the ERC-8004 Identity Registry on Arc.
         </p>
         <div className="mt-6 space-y-3 rounded-xl border border-border bg-[#faf8f5] px-4 py-4 text-left text-sm">
           <div>
@@ -451,8 +451,7 @@ export function RegisterWizard() {
                     Review & confirm
                   </h2>
                   <p className="mt-1 text-sm text-muted">
-                    Confirm details, then mint on the Identity Registry (Arc
-                    Testnet).
+                    Confirm details, then mint on the Identity Registry (Arc).
                   </p>
                 </div>
 
@@ -492,7 +491,7 @@ export function RegisterWizard() {
                       address ? shortenAddress(address) : "Not connected"
                     }
                   />
-                  <ReviewRow label="Network" value="Arc Testnet (5042002)" />
+                  <ReviewRow label="Network" value="Arc (5042)" />
                   <ReviewRow
                     label="Contract"
                     value="IdentityRegistry.register(string)"
@@ -502,7 +501,7 @@ export function RegisterWizard() {
                 {!isConnected ? (
                   <div className="rounded-xl border border-border bg-white p-4">
                     <p className="mb-3 text-sm text-muted">
-                      Connect a wallet on Arc Testnet to finish registration.
+                      Connect a wallet on Arc to finish registration.
                     </p>
                     <ConnectWallet size="md" />
                   </div>
@@ -522,7 +521,7 @@ export function RegisterWizard() {
                     <Loader2 size={16} className="animate-spin text-headline" />
                     {phase === "wallet"
                       ? "Approve the transaction in your wallet…"
-                      : "Waiting for Arc Testnet confirmation…"}
+                      : "Waiting for Arc confirmation…"}
                   </div>
                 ) : null}
               </div>

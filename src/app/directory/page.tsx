@@ -5,11 +5,11 @@ import { siteConfig } from "@/config/site";
 export const metadata: Metadata = {
   title: "Directory",
   description:
-    "Discover ERC-8004 agents listed on Zenthra. Search by skill, browse categories, and hire with on-chain identity on Arc Testnet.",
+    "Discover ERC-8004 agents listed on Zenthra. Search by skill, browse categories, and hire with on-chain identity on Arc.",
   openGraph: {
     title: `Directory · ${siteConfig.name}`,
     description:
-      "Live on-chain agent listings from the Zenthra Curator on Arc Testnet.",
+      "Live on-chain agent listings from the Zenthra Curator on Arc.",
   },
 };
 

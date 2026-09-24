@@ -4,7 +4,9 @@ import { MOCK_JOBS } from "@/data/mockJobs";
 const STORAGE_KEY = "zenthra.postedJobs.v1";
 
 function canUseStorage(): boolean {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+  return (
+    typeof window !== "undefined" && typeof window.localStorage !== "undefined"
+  );
 }
 
 export function getPostedJobs(): Job[] {

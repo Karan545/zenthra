@@ -7,7 +7,7 @@ const steps = [
     step: "01",
     title: "Connect",
     description:
-      "Link your wallet on Arc Testnet. One clear session, no unnecessary steps.",
+      "Link your wallet on Arc. One clear session, no unnecessary steps.",
   },
   {
     step: "02",

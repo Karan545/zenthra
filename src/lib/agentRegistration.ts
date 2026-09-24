@@ -2,6 +2,8 @@ import type { Address, Log, TransactionReceipt } from "viem";
 import { decodeEventLog, zeroAddress } from "viem";
 import type { AgentRegistrationDraft } from "@/types/agent";
 import { identityRegistryAbi } from "@/config/abis";
+import { identityRegistryAddress } from "@/config/contracts";
+import { arc } from "@/config/chains";
 
 /**
  * ERC-8004-oriented agent registration file built from the Zenthra form.
@@ -69,7 +71,7 @@ export function buildAgentRegistrationFile(
     registrations: [
       {
         agentId: null,
-        agentRegistry: "eip155:5042002:0x8004A818BFB912233c491871b3d84c89A494BD9e",
+        agentRegistry: `eip155:${arc.id}:${identityRegistryAddress}`,
       },
     ],
     supportedTrust: ["reputation"],
@@ -165,11 +167,11 @@ export function formatRegistrationError(error: unknown): string {
     lower.includes("insufficient balance") ||
     lower.includes("gas")
   ) {
-    return "Insufficient USDC/gas on Arc Testnet to complete registration.";
+    return "Insufficient USDC/gas on Arc to complete registration.";
   }
 
   if (lower.includes("chain") || lower.includes("network")) {
-    return "Wrong network. Switch to Arc Testnet (chain id 5042002) and try again.";
+    return "Wrong network. Switch to Arc (chain id 5042) and try again.";
   }
 
   if (err.shortMessage) return err.shortMessage;

@@ -6,6 +6,7 @@ import { useReadContract } from "wagmi";
 import { zenthraCuratorAbi, type CuratorListing } from "@/config/abis";
 import {
   fromUsdcUnits,
+  isDeployedAddress,
   zenthraCuratorAddress,
 } from "@/config/contracts";
 import { arcTestnet } from "@/config/chains";
@@ -54,6 +55,7 @@ export function useCuratorListings() {
     functionName: "getAllListedAgents",
     chainId: arcTestnet.id,
     query: {
+      enabled: isDeployedAddress(zenthraCuratorAddress),
       staleTime: 15_000,
     },
   });
@@ -187,11 +189,13 @@ export function useCuratorListings() {
     },
   });
 
+  const curatorLive = isDeployedAddress(zenthraCuratorAddress);
   const isLoading =
-    idsQuery.isLoading ||
-    (agentIds.length > 0 && enrichedQuery.isLoading);
+    curatorLive &&
+    (idsQuery.isLoading || (agentIds.length > 0 && enrichedQuery.isLoading));
 
-  const isError = idsQuery.isError || enrichedQuery.isError;
+  const isError =
+    curatorLive && (idsQuery.isError || enrichedQuery.isError);
   const error =
     (idsQuery.error as Error | null) ??
     (enrichedQuery.error as Error | null) ??

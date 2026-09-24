@@ -14,7 +14,7 @@ const footerLinks = {
   Resources: [
     { label: "Documentation", href: "/docs" },
     { label: "ERC-8004", href: "#" },
-    { label: "Arc Testnet", href: "#" },
+    { label: "Arc", href: "https://explorer.arc.io" },
   ],
   Company: [
     { label: "About", href: "#" },

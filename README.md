@@ -1,6 +1,6 @@
 # Zenthra
 
-**Permissionless agent directory & job marketplace** for ERC-8004 agents on Arc Testnet.
+**Permissionless agent directory & job marketplace** for ERC-8004 agents on Arc.
 
 Warm, editorial product design — cream surfaces, muted bronze type, no neon.
 
@@ -10,19 +10,19 @@ Warm, editorial product design — cream surfaces, muted bronze type, no neon.
 - Tailwind CSS v4
 - Framer Motion (subtle motion only)
 - Instrument Serif + Geist typography
-- **wagmi v2 + viem + RainbowKit** (Arc Testnet)
+- **wagmi v2 + viem + RainbowKit** (Arc mainnet)
 
 ## Web3
 
 | Item | Value |
 |------|--------|
-| Chain | Arc Testnet (`5042002`) |
-| RPC | `https://rpc.testnet.arc.network` |
-| Explorer | `https://testnet.arcscan.app` |
+| Chain | Arc mainnet (`5042`) |
+| RPC | `https://rpc.mainnet.arc.io` |
+| Explorer | `https://explorer.arc.io` |
 | Native gas | USDC |
-| IdentityRegistry | `0x8004A818…BD9e` |
-| ReputationRegistry | `0x8004B663…8713` |
-| ValidationRegistry | `0x8004Cb1B…4272` |
+| IdentityRegistry | `0x8004A169…a432` |
+| ReputationRegistry | `0x8004BAa1…9b63` |
+| ZenthraCurator | not deployed on mainnet yet |
 
 Set `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` in `.env.local` (from [cloud.walletconnect.com](https://cloud.walletconnect.com)). MetaMask injected still works without it.
 

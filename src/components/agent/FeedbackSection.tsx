@@ -42,7 +42,7 @@ export function FeedbackSection({
               </h2>
             </div>
             <p className="mt-1 text-sm text-muted">
-              On-chain signals from the Reputation Registry on Arc Testnet.
+              On-chain signals from the Reputation Registry on Arc.
             </p>
           </div>
           {avgLabel ? (

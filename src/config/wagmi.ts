@@ -38,14 +38,14 @@ const connectors = connectorsForWallets(
 );
 
 /**
- * wagmi + RainbowKit config — Arc Testnet only.
+ * wagmi + RainbowKit config — Arc mainnet (chain id 5042).
  * Set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID in .env.local for WalletConnect.
  */
 export const wagmiConfig = createConfig({
   connectors,
   chains: [arcTestnet],
   transports: {
-    [arcTestnet.id]: http("https://rpc.testnet.arc.network"),
+    [arcTestnet.id]: http(arcTestnet.rpcUrls.default.http[0]),
   },
   ssr: true,
 });

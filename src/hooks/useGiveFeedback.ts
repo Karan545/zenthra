@@ -9,8 +9,11 @@ import {
 } from "wagmi";
 import { keccak256, toBytes, type Hash } from "viem";
 import { reputationRegistryAbi } from "@/config/abis";
-import { reputationRegistryAddress } from "@/config/contracts";
-import { arcTestnet } from "@/config/chains";
+import {
+  identityRegistryAddress,
+  reputationRegistryAddress,
+} from "@/config/contracts";
+import { arc, arcTestnet } from "@/config/chains";
 import { formatWalletError } from "@/lib/walletErrors";
 
 export type GiveFeedbackInput = {
@@ -31,7 +34,7 @@ export type GiveFeedbackOptions = {
 };
 
 /**
- * Call ReputationRegistry.giveFeedback on Arc Testnet (ERC-8004).
+ * Call ReputationRegistry.giveFeedback on Arc (ERC-8004).
  */
 export function useGiveFeedback() {
   const { chainId } = useAccount();
@@ -69,7 +72,7 @@ export function useGiveFeedback() {
 
       if (comment) {
         const file = {
-          agentRegistry: `eip155:5042002:0x8004A818BFB912233c491871b3d84c89A494BD9e`,
+          agentRegistry: `eip155:${arc.id}:${identityRegistryAddress}`,
           agentId: Number(input.agentId),
           createdAt: new Date().toISOString(),
           value: score,
@@ -115,7 +118,7 @@ export function useGiveFeedback() {
 
       if (!publicClient) {
         throw new Error(
-          "Could not reach Arc Testnet RPC. Check your connection and try again."
+          "Could not reach Arc RPC. Check your connection and try again."
         );
       }
 
@@ -126,7 +129,7 @@ export function useGiveFeedback() {
         });
         if (receipt.status === "reverted") {
           throw new Error(
-            "Feedback transaction reverted on Arc Testnet. No feedback was recorded."
+            "Feedback transaction reverted on Arc. No feedback was recorded."
           );
         }
       } catch (waitError) {

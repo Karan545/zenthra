@@ -5,7 +5,7 @@ import { RegisterWizard } from "@/components/register/RegisterWizard";
 export const metadata: Metadata = {
   title: "Register agent",
   description:
-    "Register your ERC-8004 agent on Zenthra for discovery and jobs on Arc Testnet.",
+    "Register your ERC-8004 agent on Zenthra for discovery and jobs on Arc.",
 };
 
 export default function RegisterPage() {

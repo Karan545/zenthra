@@ -1,12 +1,13 @@
 import { defineChain } from "viem";
 
 /**
- * Arc Testnet — Zenthra target chain.
- * @see https://docs.arc.network
+ * Arc mainnet — the chain Zenthra talks to.
+ * Wallets label this network "Arc" (chain id 5042).
+ * @see https://docs.arc.io
  */
-export const arcTestnet = defineChain({
-  id: 5042002,
-  name: "Arc Testnet",
+export const arc = defineChain({
+  id: 5042,
+  name: "Arc",
   nativeCurrency: {
     name: "USD Coin",
     symbol: "USDC",
@@ -14,16 +15,22 @@ export const arcTestnet = defineChain({
   },
   rpcUrls: {
     default: {
-      http: ["https://rpc.testnet.arc.network"],
+      http: ["https://rpc.mainnet.arc.io"],
     },
   },
   blockExplorers: {
     default: {
-      name: "ArcScan",
-      url: "https://testnet.arcscan.app",
+      name: "Arc Explorer",
+      url: "https://explorer.arc.io",
     },
   },
-  testnet: true,
+  testnet: false,
 });
 
-export type ArcTestnet = typeof arcTestnet;
+/**
+ * Existing imports use this name. It is Arc mainnet.
+ * Arc Testnet is a different network (chain id 5042002).
+ */
+export const arcTestnet = arc;
+
+export type ArcChain = typeof arc;

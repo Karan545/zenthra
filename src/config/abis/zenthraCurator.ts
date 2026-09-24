@@ -1,5 +1,5 @@
 /**
- * ZenthraCurator ABI (deployed on Arc Testnet).
+ * ZenthraCurator ABI (deployed on Arc).
  * @see contracts/src/ZenthraCurator.sol
  */
 export const zenthraCuratorAbi = [

@@ -2,16 +2,31 @@ import type { Address } from "viem";
 import { arcTestnet } from "@/config/chains";
 
 /**
- * Contract addresses on Arc Testnet.
- * ZenthraCurator is the project listing layer (stake 1 USDC to list).
+ * Contract addresses on Arc mainnet (chain id 5042).
+ * Identity and Reputation are the canonical ERC-8004 mainnet registries
+ * (same CREATE2 addresses on every mainnet). Confirmed live on
+ * https://rpc.mainnet.arc.io — Reputation.getIdentityRegistry() returns
+ * the identity registry below.
+ *
+ * ZenthraCurator and the ERC-8183 job contract were only deployed on
+ * Arc Testnet (chain id 5042002). Those addresses have no code on mainnet,
+ * so listing and jobs stay disabled until they are deployed here.
  */
 export const CONTRACTS = {
   [arcTestnet.id]: {
-    IdentityRegistry: "0x8004A818BFB912233c491871b3d84c89A494BD9e" as Address,
-    ReputationRegistry: "0x8004B663056A597Dffe9eCcC1965A193B7388713" as Address,
-    ValidationRegistry: "0x8004Cb1BF31DAf7788923b405b754f57acEB4272" as Address,
-    /** Deployed ZenthraCurator — list agents with 1 USDC stake */
-    ZenthraCurator: "0xd5cE405803E02987292986caaB9dAE78fD510DFa" as Address,
+    IdentityRegistry: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432" as Address,
+    ReputationRegistry: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63" as Address,
+    /** Not part of the official ERC-8004 mainnet set. */
+    ValidationRegistry: "0x0000000000000000000000000000000000000000" as Address,
+    /**
+     * Testnet deployment. No bytecode on Arc mainnet — do not send stake here.
+     * Replace after a mainnet deploy of ZenthraCurator.
+     */
+    ZenthraCurator: "0x0000000000000000000000000000000000000000" as Address,
+    /**
+     * ERC-8183 reference exists on Arc Testnet only. No bytecode on mainnet.
+     */
+    AgenticCommerce: "0x0000000000000000000000000000000000000000" as Address,
     /**
      * Arc native USDC ERC-20 interface (6 decimals).
      * @see https://docs.arc.io/arc/references/contract-addresses
@@ -33,13 +48,22 @@ export function getContractAddress(
   return chainContracts[name];
 }
 
-/** Arc Testnet convenience exports */
+const ZERO_ADDRESS =
+  "0x0000000000000000000000000000000000000000" as Address;
+
+/** True when a contract address is set (not the zero placeholder). */
+export function isDeployedAddress(address: Address): boolean {
+  return address.toLowerCase() !== ZERO_ADDRESS;
+}
+
+/** Arc mainnet convenience exports */
 export const identityRegistryAddress = getContractAddress("IdentityRegistry");
 export const reputationRegistryAddress =
   getContractAddress("ReputationRegistry");
 export const validationRegistryAddress =
   getContractAddress("ValidationRegistry");
 export const zenthraCuratorAddress = getContractAddress("ZenthraCurator");
+export const agenticCommerceAddress = getContractAddress("AgenticCommerce");
 export const usdcAddress = getContractAddress("USDC");
 
 /** 1 USDC with 6 decimals (default list stake). */

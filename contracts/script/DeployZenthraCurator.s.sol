@@ -6,10 +6,10 @@ import {ZenthraCurator} from "../src/ZenthraCurator.sol";
 
 /**
  * @title DeployZenthraCurator
- * @notice Deploys ZenthraCurator with Arc Testnet defaults.
+ * @notice Deploys ZenthraCurator with Arc mainnet defaults.
  *
- * Defaults (Arc Testnet):
- *   Identity Registry = 0x8004A818BFB912233c491871b3d84c89A494BD9e
+ * Defaults (Arc mainnet, chain id 5042):
+ *   Identity Registry = 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432
  *   USDC              = 0x3600000000000000000000000000000000000000  (6 decimals)
  *   List stake        = 1_000_000  (1 USDC)
  *   Owner             = deployer (broadcast account)
@@ -19,15 +19,15 @@ import {ZenthraCurator} from "../src/ZenthraCurator.sol";
  *
  * Usage (from /contracts):
  *   forge script script/DeployZenthraCurator.s.sol:DeployZenthraCurator \
- *     --rpc-url https://rpc.testnet.arc.network \
+ *     --rpc-url https://rpc.mainnet.arc.io \
  *     --broadcast \
  *     --private-key $env:PRIVATE_KEY \
  *     -vvvv
  */
 contract DeployZenthraCurator is Script {
-    // ── Arc Testnet constants ───────────────────────────────────────────────
+    // ── Arc mainnet constants ───────────────────────────────────────────────
     address constant ARC_IDENTITY_REGISTRY =
-        0x8004A818BFB912233c491871b3d84c89A494BD9e;
+        0x8004A169FB4a3325136EB29fA0ceB6D2e539a432;
 
     // Arc native USDC ERC-20 interface (6 decimals).
     // Docs: https://docs.arc.io/arc/references/contract-addresses
@@ -46,13 +46,13 @@ contract DeployZenthraCurator is Script {
         address owner = vm.envOr("OWNER", msg.sender);
 
         console2.log("========================================");
-        console2.log("  ZenthraCurator - Arc Testnet deploy");
+        console2.log("  ZenthraCurator - Arc mainnet deploy");
         console2.log("========================================");
         console2.log("identityRegistry :", identityRegistry);
         console2.log("usdc             :", usdc);
         console2.log("listStakeAmount  :", listStakeAmount);
         console2.log("owner            :", owner);
-        console2.log("chain id (expect): 5042002");
+        console2.log("chain id (expect): 5042");
         console2.log("----------------------------------------");
 
         require(identityRegistry != address(0), "IDENTITY_REGISTRY is zero");
@@ -69,7 +69,7 @@ contract DeployZenthraCurator is Script {
         console2.log("----------------------------------------");
         console2.log("SUCCESS");
         console2.log("ZenthraCurator :", address(curator));
-        console2.log("Explorer       : https://testnet.arcscan.app/address/%s", address(curator));
+        console2.log("Explorer       : https://explorer.arc.io/address/%s", address(curator));
         console2.log("========================================");
         console2.log("NEXT: save this address for the frontend");
         console2.log("  src/config/contracts.ts  -> ZenthraCurator");

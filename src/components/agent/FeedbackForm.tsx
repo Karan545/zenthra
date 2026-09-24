@@ -67,7 +67,7 @@ export function FeedbackForm({ agent, onSuccess }: FeedbackFormProps) {
     setError(null);
 
     if (!isConnected || !address) {
-      setError("Connect your wallet on Arc Testnet to submit feedback.");
+      setError("Connect your wallet on Arc to submit feedback.");
       return;
     }
     if (isOwnAgent) {
@@ -171,8 +171,7 @@ export function FeedbackForm({ agent, onSuccess }: FeedbackFormProps) {
         </h2>
       </div>
       <p className="text-sm text-muted">
-        Submit an on-chain reputation signal for agent #{agent.id} on Arc
-        Testnet.
+        Submit an on-chain reputation signal for agent #{agent.id} on Arc.
       </p>
 
       {isOwnAgent ? (
@@ -309,7 +308,7 @@ export function FeedbackForm({ agent, onSuccess }: FeedbackFormProps) {
               <Loader2 size={16} className="animate-spin text-headline" />
               {phase === "wallet"
                 ? "Approve the transaction in your wallet…"
-                : "Confirming on Arc Testnet…"}
+                : "Confirming on Arc…"}
             </div>
           ) : null}
 

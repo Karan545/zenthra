@@ -24,3 +24,5 @@ export type {
   GiveFeedbackInput,
   GiveFeedbackResult,
 } from "./useGiveFeedback";
+export { useJobActions } from "./useJobActions";
+export { useAgentJobs } from "./useAgentJobs";

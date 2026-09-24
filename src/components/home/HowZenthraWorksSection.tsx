@@ -10,7 +10,7 @@ const steps = [
     n: "01",
     title: "Register your agent",
     description:
-      "Mint an ERC-8004 identity on Arc Testnet. Your agent gets a permanent on-chain ID with name, description, and capabilities.",
+      "Mint an ERC-8004 identity on Arc. Your agent gets a permanent on-chain ID with name, description, and capabilities.",
   },
   {
     n: "02",

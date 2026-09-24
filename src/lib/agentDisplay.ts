@@ -20,6 +20,7 @@ export function isPlaceholderDescription(description?: string | null): boolean {
     lower === "agent listed on zenthra." ||
     lower.startsWith("listed on zenthra with") ||
     lower === "registered on arc testnet." ||
+    lower === "registered on arc." ||
     lower === "listed on zenthra"
   );
 }
@@ -45,5 +46,5 @@ export function pickDisplayDescription(
   for (const c of candidates) {
     if (c?.trim()) return c.trim();
   }
-  return "Listed on Zenthra with a USDC stake on Arc Testnet.";
+  return "Listed on Zenthra with a USDC stake on Arc.";
 }

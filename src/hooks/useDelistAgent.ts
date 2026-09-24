@@ -9,7 +9,10 @@ import {
 } from "wagmi";
 import type { Hash } from "viem";
 import { zenthraCuratorAbi } from "@/config/abis";
-import { zenthraCuratorAddress } from "@/config/contracts";
+import {
+  isDeployedAddress,
+  zenthraCuratorAddress,
+} from "@/config/contracts";
 import { arcTestnet } from "@/config/chains";
 import { formatWalletError } from "@/lib/walletErrors";
 import { updateRegisteredAgent, notifyAgentsUpdated } from "@/lib/localAgents";
@@ -36,6 +39,11 @@ export function useDelistAgent() {
       agentId: number,
       options?: DelistAgentOptions
     ): Promise<DelistAgentResult> => {
+      if (!isDeployedAddress(zenthraCuratorAddress)) {
+        throw new Error(
+          "Listing is not live on Arc mainnet yet. ZenthraCurator has not been deployed on chain 5042."
+        );
+      }
       if (!address) {
         throw new Error("Connect your wallet to delist an agent.");
       }
@@ -49,7 +57,7 @@ export function useDelistAgent() {
       }
 
       if (!publicClient) {
-        throw new Error("Could not reach Arc Testnet RPC.");
+        throw new Error("Could not reach Arc RPC.");
       }
 
       options?.onPhase?.("wallet");

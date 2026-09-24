@@ -73,7 +73,7 @@ export function formatWalletError(
     lower.includes("insufficient funds") ||
     lower.includes("insufficient balance")
   ) {
-    return "Insufficient funds on Arc Testnet to complete this transaction.";
+    return "Insufficient funds on Arc to complete this transaction.";
   }
 
   if (lower.includes("own agent") || lower.includes("agent owner")) {
@@ -84,7 +84,7 @@ export function formatWalletError(
     (lower.includes("wrong network") || lower.includes("chain mismatch")) &&
     !isTechnicalRpcError(raw)
   ) {
-    return "Wrong network. Switch to Arc Testnet and try again.";
+    return "Wrong network. Switch to Arc and try again.";
   }
 
   // Hide technical RPC / HTTP dumps

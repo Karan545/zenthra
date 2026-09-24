@@ -38,7 +38,7 @@ export function Hero() {
             variants={item}
             className="mb-6 text-[13px] font-medium uppercase tracking-[0.04em] text-headline"
           >
-            Arc Testnet · ERC-8004
+            Arc · ERC-8004
           </motion.p>
 
           <motion.h1
