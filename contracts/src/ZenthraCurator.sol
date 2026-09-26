@@ -74,6 +74,10 @@ contract ZenthraCurator is Ownable, ReentrancyGuard {
     /// @dev agentId => index in _listedAgentIds + 1 (0 = absent).
     mapping(uint256 => uint256) private _listedIndexPlusOne;
 
+    /// @dev Sum of all active listing stakes held by this contract.
+    ///      Used to prevent owner from sweeping escrowed user funds via rescueTokens.
+    uint256 public totalActiveStake;
+
     // ─────────────────────────────────────────────────────────────────────────
     // Events
     // ─────────────────────────────────────────────────────────────────────────
@@ -105,6 +109,13 @@ contract ZenthraCurator is Ownable, ReentrancyGuard {
 
     event CapabilitiesUpdated(uint256 indexed agentId, string[] capabilities);
 
+    /// @notice Emitted when a listing is force-synced to the current NFT owner.
+    event ListingOwnerSynced(
+        uint256 indexed agentId,
+        address indexed oldOwner,
+        address indexed newOwner
+    );
+
     // ─────────────────────────────────────────────────────────────────────────
     // Errors
     // ─────────────────────────────────────────────────────────────────────────
@@ -117,6 +128,7 @@ contract ZenthraCurator is Ownable, ReentrancyGuard {
     error ZeroStake();
     error EmptyCapabilities();
     error TooManyCapabilities();
+    error RescueWouldBreakSolvency();
 
     // ─────────────────────────────────────────────────────────────────────────
     // Constructor
@@ -173,6 +185,7 @@ contract ZenthraCurator is Ownable, ReentrancyGuard {
 
         uint256 stake = listStakeAmount;
         usdc.safeTransferFrom(msg.sender, address(this), stake);
+        totalActiveStake += stake;
 
         AgentListing storage listing = _listings[agentId];
         listing.agentId = agentId;
@@ -216,6 +229,7 @@ contract ZenthraCurator is Ownable, ReentrancyGuard {
         _removeFromListed(agentId);
 
         if (stake > 0) {
+            totalActiveStake -= stake;
             usdc.safeTransfer(stakeRecipient, stake);
         }
 
@@ -256,6 +270,30 @@ contract ZenthraCurator is Ownable, ReentrancyGuard {
 
         emit AgentUpdated(agentId, x402Endpoint, pricePerTask);
         emit CapabilitiesUpdated(agentId, capabilities);
+    }
+
+    /**
+     * @notice Sync listing ownership to the current NFT owner when the identity NFT
+     *         has been transferred since the listing was created.
+     *
+     * @dev Fixes the "stale listing owner" vulnerability: after an NFT transfer the
+     *      new owner is locked out (NotListingOwner) while the old owner retains
+     *      control. This function lets the current NFT owner claim the listing so they
+     *      can update or delist it. The stake remains locked until delist.
+     *
+     * @param agentId The agent / token id whose listing should be re-anchored.
+     */
+    function syncListingOwner(uint256 agentId) external {
+        AgentListing storage listing = _listings[agentId];
+        if (!listing.isActive) revert NotListed();
+
+        address currentNftOwner = identityRegistry.ownerOf(agentId);
+        if (currentNftOwner == listing.owner) return; // already in sync, no-op
+
+        address oldOwner = listing.owner;
+        listing.owner = currentNftOwner;
+
+        emit ListingOwnerSynced(agentId, oldOwner, currentNftOwner);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -312,14 +350,27 @@ contract ZenthraCurator is Ownable, ReentrancyGuard {
 
     /**
      * @notice Rescue tokens accidentally sent to this contract.
-     * @dev Prefer a multisig as owner in production. Do not use this to
-     *      short-change active listing stakes intentionally.
+     * @dev If `token` is the staking USDC, only the surplus above all active
+     *      listing stakes may be rescued — this prevents the owner from bricking
+     *      pending delistAgent calls.
+     *
+     *      For any other token the full `amount` is transferable (no active
+     *      liabilities exist in those tokens).
      */
     function rescueTokens(address token, uint256 amount, address to)
         external
         onlyOwner
     {
         if (to == address(0)) revert ZeroAddress();
+
+        if (token == address(usdc)) {
+            uint256 balance = usdc.balanceOf(address(this));
+            uint256 surplus = balance > totalActiveStake
+                ? balance - totalActiveStake
+                : 0;
+            if (amount > surplus) revert RescueWouldBreakSolvency();
+        }
+
         IERC20(token).safeTransfer(to, amount);
     }
 

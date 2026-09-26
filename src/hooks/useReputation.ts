@@ -4,7 +4,7 @@ import { useReadContract } from "wagmi";
 import type { Address } from "viem";
 import { reputationRegistryAbi } from "@/config/abis";
 import { reputationRegistryAddress } from "@/config/contracts";
-import { arcTestnet } from "@/config/chains";
+import { arcMainnet } from "@/config/chains";
 
 /**
  * Read reputation summary for an agent (ERC-8004 getSummary).
@@ -25,7 +25,7 @@ export function useAgentReputation(
       id !== undefined
         ? [id, clients, "", ""]
         : undefined,
-    chainId: arcTestnet.id,
+    chainId: arcMainnet.id,
     query: {
       // Spec expects non-empty clients for meaningful results; still allow read when provided
       enabled: id !== undefined && clients.length > 0,

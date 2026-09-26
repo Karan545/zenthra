@@ -5,7 +5,7 @@ import { RainbowKitProvider, lightTheme } from "@rainbow-me/rainbowkit";
 import { WagmiProvider } from "wagmi";
 import { useState, type ReactNode } from "react";
 import { wagmiConfig } from "@/config/wagmi";
-import { arcTestnet } from "@/config/chains";
+import { arcMainnet } from "@/config/chains";
 
 import "@rainbow-me/rainbowkit/styles.css";
 
@@ -55,7 +55,7 @@ export function Web3Provider({ children }: Web3ProviderProps) {
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider
           theme={zenthraRainbowTheme}
-          initialChain={arcTestnet}
+          initialChain={arcMainnet}
           locale="en-US"
           coolMode={false}
           modalSize="compact"

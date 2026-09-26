@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Contract libraries (not needed for deployment)
+contracts/lib/
+contracts/cache/
+contracts/out/

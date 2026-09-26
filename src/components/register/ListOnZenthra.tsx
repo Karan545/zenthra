@@ -16,7 +16,9 @@ import { explorerTxUrl, shortenAddress } from "@/lib/format";
 import { formatWalletError } from "@/lib/walletErrors";
 import type { Agent } from "@/types/agent";
 import type { Hash } from "viem";
-import { ONE_USDC, fromUsdcUnits } from "@/config/contracts";
+import { parseUnits, formatUnits } from "viem";
+const ONE_USDC = parseUnits("1", 6);
+const fromUsdcUnits = (v: bigint) => Number(formatUnits(v, 6));
 
 type Phase = "idle" | "approve" | "list" | "confirming" | "done";
 

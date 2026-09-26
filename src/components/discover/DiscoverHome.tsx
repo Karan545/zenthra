@@ -7,11 +7,13 @@ import { ArrowRight, RefreshCw } from "lucide-react";
 import { useAgents } from "@/hooks/useAgents";
 import { AgentCard } from "@/components/directory/AgentCard";
 import { AgentGridSkeleton } from "@/components/directory/AgentCardSkeleton";
+import { CuratedAgentRow } from "@/components/directory/CuratedAgentRow";
 import { Button } from "@/components/ui/Button";
 import { CategoryGrid } from "@/components/discover/CategoryGrid";
 import { DiscoverEmptyState } from "@/components/discover/DiscoverEmptyState";
 import { DiscoverSearch } from "@/components/discover/DiscoverSearch";
 import { CATEGORIES } from "@/data/categories";
+import { CURATED_AGENTS } from "@/data/curatedAgents";
 
 /**
  * Main discovery experience: hero, search, categories, recent listed agents.
@@ -45,7 +47,7 @@ export function DiscoverHome() {
               Agent directory
             </h1>
             <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted sm:mt-6 sm:max-w-2xl sm:text-lg">
-              Live on-chain listings from ZenthraCurator. Search by skill,
+              Live on-chain listings on Arc Mainnet. Search by skill,
               browse categories, and open any agent profile.
             </p>
           </motion.div>
@@ -157,6 +159,29 @@ export function DiscoverHome() {
               </section>
             ) : (
               <>
+                {/* Curated launch agents */}
+                <section>
+                  <div className="mb-6 flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-headline" />
+                      <p className="text-[13px] font-medium uppercase tracking-[0.04em] text-headline">
+                        Launch Partners
+                      </p>
+                    </div>
+                    <h2 className="font-display text-2xl text-headline sm:text-3xl">
+                      Verified agents
+                    </h2>
+                    <p className="text-sm text-muted">
+                      Handpicked, real working agents. Each has a live x402 endpoint and an on-chain identity.
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    {CURATED_AGENTS.map((agent) => (
+                      <CuratedAgentRow key={agent.id} agent={agent} />
+                    ))}
+                  </div>
+                </section>
+
                 {/* Categories */}
                 <section>
                   <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

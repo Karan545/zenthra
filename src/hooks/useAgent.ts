@@ -3,7 +3,7 @@
 import { useReadContract } from "wagmi";
 import { identityRegistryAbi } from "@/config/abis";
 import { identityRegistryAddress } from "@/config/contracts";
-import { arcTestnet } from "@/config/chains";
+import { arcMainnet } from "@/config/chains";
 
 /**
  * Read agent ownership + tokenURI from the Identity Registry.
@@ -18,7 +18,7 @@ export function useAgent(agentId: bigint | number | undefined) {
     abi: identityRegistryAbi,
     functionName: "ownerOf",
     args: id !== undefined ? [id] : undefined,
-    chainId: arcTestnet.id,
+    chainId: arcMainnet.id,
     query: { enabled },
   });
 
@@ -27,7 +27,7 @@ export function useAgent(agentId: bigint | number | undefined) {
     abi: identityRegistryAbi,
     functionName: "tokenURI",
     args: id !== undefined ? [id] : undefined,
-    chainId: arcTestnet.id,
+    chainId: arcMainnet.id,
     query: { enabled },
   });
 
@@ -50,7 +50,7 @@ export function useAgentTotalSupply() {
     address: identityRegistryAddress,
     abi: identityRegistryAbi,
     functionName: "totalSupply",
-    chainId: arcTestnet.id,
+    chainId: arcMainnet.id,
   });
 }
 
@@ -61,7 +61,7 @@ export function useAgentBalance(owner?: `0x${string}`) {
     abi: identityRegistryAbi,
     functionName: "balanceOf",
     args: owner ? [owner] : undefined,
-    chainId: arcTestnet.id,
+    chainId: arcMainnet.id,
     query: { enabled: Boolean(owner) },
   });
 }

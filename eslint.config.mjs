@@ -18,6 +18,10 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      // Vendored Solidity tooling — not our code
+      "contracts/lib/**",
+      "contracts/cache/**",
+      "contracts/out/**",
     ],
   },
 ];

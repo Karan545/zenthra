@@ -126,4 +126,132 @@ contract ZenthraCuratorTest is Test {
         curator.featureAgent(agentId, true);
         assertTrue(curator.getAgent(agentId).isFeatured);
     }
+
+    // ─── Bug fix: totalActiveStake tracks listed stakes ─────────────────────
+
+    function test_totalActiveStake_trackedCorrectly() public {
+        assertEq(curator.totalActiveStake(), 0);
+
+        vm.startPrank(alice);
+        uint256 agentId = identity.mint(alice);
+        usdc.approve(address(curator), STAKE);
+        string[] memory caps = new string[](1);
+        caps[0] = "Research";
+        curator.listAgent(agentId, "", caps, 100);
+        vm.stopPrank();
+
+        assertEq(curator.totalActiveStake(), STAKE);
+
+        vm.prank(alice);
+        curator.delistAgent(agentId);
+
+        assertEq(curator.totalActiveStake(), 0);
+    }
+
+    // ─── Bug fix: rescueTokens cannot drain active listing stakes ────────────
+
+    function test_rescueTokens_cannotDrainActiveStake() public {
+        // alice lists → STAKE locked in curator
+        vm.startPrank(alice);
+        uint256 agentId = identity.mint(alice);
+        usdc.approve(address(curator), STAKE);
+        string[] memory caps = new string[](1);
+        caps[0] = "Research";
+        curator.listAgent(agentId, "", caps, 100);
+        vm.stopPrank();
+
+        // owner tries to rescue the full USDC balance (which equals the active stake)
+        vm.prank(owner);
+        vm.expectRevert(ZenthraCurator.RescueWouldBreakSolvency.selector);
+        curator.rescueTokens(address(usdc), STAKE, owner);
+    }
+
+    function test_rescueTokens_allowsSurplusUSDC() public {
+        // alice lists — STAKE is the liability
+        vm.startPrank(alice);
+        uint256 agentId = identity.mint(alice);
+        usdc.approve(address(curator), STAKE);
+        string[] memory caps = new string[](1);
+        caps[0] = "Research";
+        curator.listAgent(agentId, "", caps, 100);
+        vm.stopPrank();
+
+        // someone accidentally sends extra USDC directly to the contract
+        uint256 surplus = 500_000;
+        usdc.mint(address(curator), surplus);
+
+        // owner can rescue the surplus only
+        vm.prank(owner);
+        curator.rescueTokens(address(usdc), surplus, owner);
+        assertEq(usdc.balanceOf(address(curator)), STAKE);
+    }
+
+    // ─── Bug fix: syncListingOwner migrates control to new NFT owner ─────────
+
+    function test_syncListingOwner_allowsNewOwnerToUpdate() public {
+        // alice lists
+        vm.startPrank(alice);
+        uint256 agentId = identity.mint(alice);
+        usdc.approve(address(curator), STAKE);
+        string[] memory caps = new string[](1);
+        caps[0] = "Research";
+        curator.listAgent(agentId, "", caps, 100);
+        vm.stopPrank();
+
+        // alice transfers the NFT to bob
+        vm.prank(alice);
+        identity.transferFrom(alice, bob, agentId);
+
+        // bob cannot update before sync
+        string[] memory newCaps = new string[](1);
+        newCaps[0] = "Ops";
+        vm.prank(bob);
+        vm.expectRevert(ZenthraCurator.NotListingOwner.selector);
+        curator.updateListing(agentId, "https://new.example.com", newCaps, 200);
+
+        // anyone can call syncListingOwner; bob gets control
+        curator.syncListingOwner(agentId);
+        assertEq(curator.getAgent(agentId).owner, bob);
+
+        // bob can now update
+        vm.prank(bob);
+        curator.updateListing(agentId, "https://new.example.com", newCaps, 200);
+        assertEq(curator.getAgent(agentId).pricePerTask, 200);
+    }
+
+    function test_syncListingOwner_allowsNewOwnerToDelist() public {
+        vm.startPrank(alice);
+        uint256 agentId = identity.mint(alice);
+        usdc.approve(address(curator), STAKE);
+        string[] memory caps = new string[](1);
+        caps[0] = "Research";
+        curator.listAgent(agentId, "", caps, 100);
+        vm.stopPrank();
+
+        // alice transfers the NFT to bob
+        vm.prank(alice);
+        identity.transferFrom(alice, bob, agentId);
+
+        curator.syncListingOwner(agentId);
+
+        // bob delists and recovers the stake (paid to bob now as listing.owner)
+        uint256 beforeBal = usdc.balanceOf(bob);
+        vm.prank(bob);
+        curator.delistAgent(agentId);
+        assertEq(usdc.balanceOf(bob), beforeBal + STAKE);
+    }
+
+    function test_syncListingOwner_noopWhenInSync() public {
+        vm.startPrank(alice);
+        uint256 agentId = identity.mint(alice);
+        usdc.approve(address(curator), STAKE);
+        string[] memory caps = new string[](1);
+        caps[0] = "Research";
+        curator.listAgent(agentId, "", caps, 100);
+        vm.stopPrank();
+
+        // NFT hasn't moved — sync is a no-op
+        curator.syncListingOwner(agentId);
+        assertEq(curator.getAgent(agentId).owner, alice);
+    }
 }

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { arcTestnet } from "@/config/chains";
+import { arcMainnet } from "@/config/chains";
 import { fetchIdentityDisplayMeta } from "@/lib/fetchIdentityDisplayMeta";
 import { getCachedDisplayMeta } from "@/lib/agentMetaCache";
 import type { DisplayMeta } from "@/lib/agentMetadata";
@@ -38,7 +38,7 @@ export function useIdentityMetadata(agentIds: bigint[]) {
   }, [idsKey]);
 
   const metaQuery = useQuery({
-    queryKey: ["zenthra", "identity-meta-v3", arcTestnet.id, idsKey],
+    queryKey: ["zenthra", "identity-meta-v3", arcMainnet.id, idsKey],
     queryFn: async () => {
       const map = await fetchIdentityDisplayMeta(agentIds);
       // Serialize as plain object for React Query stability

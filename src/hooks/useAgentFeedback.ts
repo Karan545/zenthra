@@ -5,7 +5,7 @@ import { usePublicClient } from "wagmi";
 import type { Address } from "viem";
 import { reputationRegistryAbi } from "@/config/abis";
 import { reputationRegistryAddress } from "@/config/contracts";
-import { arcTestnet } from "@/config/chains";
+import { arcMainnet } from "@/config/chains";
 import { shortenAddress } from "@/lib/format";
 
 export type FeedbackItem = {
@@ -35,14 +35,14 @@ function scoreFromFixed(value: bigint, decimals: number): number {
  * Load reputation summary + recent feedback for an agent from Reputation Registry.
  */
 export function useAgentFeedback(agentId: number | undefined) {
-  const publicClient = usePublicClient({ chainId: arcTestnet.id });
+  const publicClient = usePublicClient({ chainId: arcMainnet.id });
   const enabled = agentId != null && Number.isFinite(agentId) && Boolean(publicClient);
 
   const query = useQuery({
     queryKey: [
       "zenthra",
       "feedback",
-      arcTestnet.id,
+      arcMainnet.id,
       reputationRegistryAddress,
       agentId,
     ],
