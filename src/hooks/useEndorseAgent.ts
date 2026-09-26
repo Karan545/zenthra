@@ -8,7 +8,7 @@ import {
   useWriteContract,
 } from "wagmi";
 import type { Hash } from "viem";
-import { zenthraCuratorAbi } from "@/config/abis";
+import { zenthraCuratorV2Abi } from "@/config/abis/zenthraCuratorV2";
 import { zenthraCuratorV2Address } from "@/config/contracts";
 import { arcMainnet } from "@/config/chains";
 import { formatWalletError } from "@/lib/walletErrors";
@@ -49,7 +49,7 @@ export function useEndorseAgent() {
       try {
         hash = await writeContractAsync({
           address: CONTRACT,
-          abi: zenthraCuratorAbi,
+          abi: zenthraCuratorV2Abi,
           functionName: "endorseAgent",
           args: [BigInt(endorserAgentId), BigInt(targetAgentId)],
           chainId: arcMainnet.id,

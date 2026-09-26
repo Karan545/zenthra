@@ -8,7 +8,8 @@ import {
   useWriteContract,
 } from "wagmi";
 import type { Hash } from "viem";
-import { erc20Abi, zenthraCuratorAbi } from "@/config/abis";
+import { erc20Abi } from "@/config/abis";
+import { zenthraCuratorV2Abi } from "@/config/abis/zenthraCuratorV2";
 import { usdcAddress, zenthraCuratorV2Address } from "@/config/contracts";
 import { arcMainnet } from "@/config/chains";
 import { formatWalletError } from "@/lib/walletErrors";
@@ -93,7 +94,7 @@ export function useRequestTask() {
       try {
         requestHash = await writeContractAsync({
           address: CONTRACT,
-          abi: zenthraCuratorAbi,
+          abi: zenthraCuratorV2Abi,
           functionName: "requestTask",
           args: [BigInt(agentId), amountUnits],
           chainId: arcMainnet.id,

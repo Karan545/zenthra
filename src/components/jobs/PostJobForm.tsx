@@ -1,215 +1,215 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { useAccount } from "wagmi";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { Loader2, CheckCircle2, PlusCircle, XCircle } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
-import { CapabilityPicker } from "@/components/ui/CapabilityPicker";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { ConnectWallet } from "@/components/web3/ConnectWallet";
-import type { Job, JobDraft } from "@/types/job";
-import { nextJobId, savePostedJob } from "@/lib/localJobs";
+import { usePostJob } from "@/hooks/useJobBoardWrite";
+import type { JobDraft } from "@/types/job";
 
-const empty: JobDraft = {
+const EMPTY: JobDraft = {
   title: "",
   description: "",
-  budget: "",
+  bounty: "",
   requiredCapabilities: [],
   deadline: "",
 };
 
-type Errors = Partial<Record<keyof JobDraft, string>>;
-
-function validate(draft: JobDraft): Errors {
-  const errors: Errors = {};
+function validate(draft: JobDraft): Partial<Record<keyof JobDraft, string>> {
+  const errors: Partial<Record<keyof JobDraft, string>> = {};
   if (!draft.title.trim()) errors.title = "Title is required.";
-  else if (draft.title.trim().length < 6)
-    errors.title = "Use at least 6 characters.";
+  const bounty = Number(draft.bounty);
+  if (!draft.bounty.trim()) errors.bounty = "Bounty is required.";
+  else if (!Number.isFinite(bounty) || bounty <= 0)
+    errors.bounty = "Enter a positive bounty in USDC.";
   if (!draft.description.trim()) errors.description = "Description is required.";
-  else if (draft.description.trim().length < 24)
-    errors.description = "Add more detail (24+ characters).";
-  const budget = Number(draft.budget);
-  if (!draft.budget.trim()) errors.budget = "Budget is required.";
-  else if (!Number.isFinite(budget) || budget <= 0)
-    errors.budget = "Enter a positive budget.";
-  if (draft.requiredCapabilities.length === 0)
-    errors.requiredCapabilities = "Select at least one required skill.";
-  if (!draft.deadline) errors.deadline = "Deadline is required.";
-  else {
-    const d = new Date(draft.deadline);
-    if (Number.isNaN(d.getTime())) errors.deadline = "Invalid date.";
-  }
   return errors;
 }
 
 interface PostJobFormProps {
-  onPosted?: (job: Job) => void;
+  onPosted?: () => void;
 }
 
 export function PostJobForm({ onPosted }: PostJobFormProps) {
-  const { address, isConnected } = useAccount();
-  const [draft, setDraft] = useState<JobDraft>(empty);
-  const [errors, setErrors] = useState<Errors>({});
-  const [submitting, setSubmitting] = useState(false);
-  const [posted, setPosted] = useState<Job | null>(null);
+  const { isConnected } = useAccount();
+  const { postJob, isPending } = usePostJob();
 
-  const setField = <K extends keyof JobDraft>(key: K, value: JobDraft[K]) => {
+  const [draft, setDraft] = useState<JobDraft>(EMPTY);
+  const [errors, setErrors] = useState<Partial<Record<keyof JobDraft, string>>>({});
+  const [capInput, setCapInput] = useState("");
+  const [posted, setPosted] = useState(false);
+  const [err, setErr] = useState("");
+
+  function setField<K extends keyof JobDraft>(key: K, value: JobDraft[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
     setErrors((e) => ({ ...e, [key]: undefined }));
-  };
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  function addCap() {
+    const v = capInput.trim();
+    if (!v || draft.requiredCapabilities.includes(v)) return;
+    setField("requiredCapabilities", [...draft.requiredCapabilities, v]);
+    setCapInput("");
+  }
+
+  function removeCap(cap: string) {
+    setField("requiredCapabilities", draft.requiredCapabilities.filter((c) => c !== cap));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const nextErrors = validate(draft);
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
-    if (!isConnected || !address) return;
+    setErr("");
+    const errs = validate(draft);
+    if (Object.keys(errs).length) { setErrors(errs); return; }
 
-    setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 700));
+    try {
+      const deadlineUnix = draft.deadline
+        ? Math.floor(new Date(draft.deadline).getTime() / 1000)
+        : 0;
+      await postJob({
+        title: draft.title.trim(),
+        description: draft.description.trim(),
+        requiredCapabilities: draft.requiredCapabilities,
+        bountyUsdc: Number(draft.bounty),
+        deadlineUnix,
+        maxBids: 0,
+      });
+      setPosted(true);
+      toast.success("Job posted on-chain.");
+      onPosted?.();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Transaction failed";
+      setErr(msg.length > 160 ? msg.slice(0, 160) + "…" : msg);
+    }
+  }
 
-    const job: Job = {
-      id: nextJobId(),
-      title: draft.title.trim(),
-      description: draft.description.trim(),
-      budget: Number(draft.budget),
-      currency: "USDC",
-      requiredCapabilities: draft.requiredCapabilities,
-      deadline: draft.deadline,
-      status: "open",
-      poster: address,
-      bidsCount: 0,
-      createdAt: new Date().toISOString().slice(0, 10),
-    };
-
-    savePostedJob(job);
-    setPosted(job);
-    onPosted?.(job);
-    setSubmitting(false);
-  };
+  if (!isConnected) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-10">
+        <p className="text-sm text-[var(--color-text-muted)]">Connect your wallet to post a job.</p>
+        <ConnectWallet />
+      </div>
+    );
+  }
 
   if (posted) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="card-surface rounded-2xl px-6 py-12 text-center sm:px-10"
-      >
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#f0ebe3] text-headline">
-          <CheckCircle2 size={24} strokeWidth={1.5} />
-        </div>
-        <h3 className="font-display text-2xl text-headline">Job posted</h3>
-        <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-          <span className="font-medium text-foreground">{posted.title}</span> is
-          live on the board for agents to bid.
+      <div className="flex flex-col items-center gap-4 py-12 text-center">
+        <CheckCircle2 className="w-10 h-10 text-green-500" />
+        <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Job posted!</h3>
+        <p className="text-sm text-[var(--color-text-muted)]">
+          Agents can now discover and bid on your job.
         </p>
-        <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-          <Button
-            type="button"
-            variant="primary"
-            size="md"
-            onClick={() => {
-              setPosted(null);
-              setDraft(empty);
-            }}
-          >
-            Post another
-          </Button>
-          <Button href="/jobs" variant="secondary" size="md">
-            View board
-          </Button>
-        </div>
-      </motion.div>
+        <Button variant="secondary" onClick={() => { setDraft(EMPTY); setPosted(false); }}>
+          Post another
+        </Button>
+      </div>
     );
   }
 
   return (
-    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-5">
-      <div className="card-surface space-y-5 rounded-2xl p-5 sm:p-7">
-        <div>
-          <h2 className="font-display text-2xl text-headline">Post a job</h2>
-          <p className="mt-1 text-sm text-muted">
-            Describe the work, budget, and skills you need.
-          </p>
-        </div>
-
+    <form onSubmit={handleSubmit} className="space-y-5 max-w-lg">
+      <div>
+        <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
+          Job title <span className="text-red-500">*</span>
+        </label>
         <Input
-          label="Title"
-          name="title"
-          required
-          placeholder="e.g. Summarize Arc docs"
+          placeholder="e.g. Audit my Solidity contract"
           value={draft.title}
           onChange={(e) => setField("title", e.target.value)}
           error={errors.title}
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
+          Description <span className="text-red-500">*</span>
+        </label>
         <Textarea
-          label="Description"
-          name="description"
-          required
-          placeholder="What should the agent deliver? Any constraints?"
+          placeholder="Describe the work, deliverables, and any requirements."
           value={draft.description}
           onChange={(e) => setField("description", e.target.value)}
           error={errors.description}
+          rows={4}
         />
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Input
-            label="Budget (USDC)"
-            name="budget"
-            required
-            type="number"
-            min={0}
-            step="1"
-            placeholder="50"
-            value={draft.budget}
-            onChange={(e) => setField("budget", e.target.value)}
-            error={errors.budget}
-          />
-          <Input
-            label="Deadline"
-            name="deadline"
-            required
-            type="date"
-            value={draft.deadline}
-            onChange={(e) => setField("deadline", e.target.value)}
-            error={errors.deadline}
-          />
-        </div>
-        <CapabilityPicker
-          value={draft.requiredCapabilities}
-          onChange={(caps) => setField("requiredCapabilities", caps)}
-          error={errors.requiredCapabilities}
-          max={6}
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
+          Bounty (USDC) <span className="text-red-500">*</span>
+        </label>
+        <Input
+          type="number"
+          min="0.01"
+          step="0.01"
+          placeholder="10"
+          value={draft.bounty}
+          onChange={(e) => setField("bounty", e.target.value)}
+          error={errors.bounty}
         />
+        <p className="text-xs text-[var(--color-text-muted)] mt-1">
+          USDC is locked in escrow until you confirm delivery.
+        </p>
+      </div>
 
-        {!isConnected ? (
-          <div className="rounded-xl border border-border bg-[#faf8f5] p-4">
-            <p className="mb-3 text-sm text-muted">
-              Connect a wallet to post this job.
-            </p>
-            <ConnectWallet size="md" />
-          </div>
-        ) : null}
-
-        <div className="flex justify-end border-t border-border pt-5">
-          <Button
-            type="submit"
-            variant="primary"
-            size="md"
-            disabled={submitting || !isConnected}
-          >
-            {submitting ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                Posting…
-              </>
-            ) : (
-              "Post job"
-            )}
+      <div>
+        <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
+          Required capabilities
+        </label>
+        <div className="flex gap-2">
+          <Input
+            placeholder="e.g. Solidity, Research"
+            value={capInput}
+            onChange={(e) => setCapInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCap(); } }}
+          />
+          <Button type="button" variant="secondary" size="sm" onClick={addCap}>
+            <PlusCircle className="w-4 h-4" />
           </Button>
         </div>
+        {draft.requiredCapabilities.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {draft.requiredCapabilities.map((cap) => (
+              <span
+                key={cap}
+                className="flex items-center gap-1 text-xs bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] px-2 py-1 rounded-full"
+              >
+                {cap}
+                <button type="button" onClick={() => removeCap(cap)}>
+                  <XCircle className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
+
+      <div>
+        <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
+          Deadline (optional)
+        </label>
+        <Input
+          type="date"
+          value={draft.deadline}
+          onChange={(e) => setField("deadline", e.target.value)}
+        />
+      </div>
+
+      {err && (
+        <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{err}</p>
+      )}
+
+      <Button type="submit" disabled={isPending} className="w-full">
+        {isPending ? (
+          <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Posting…</>
+        ) : (
+          "Post job — lock USDC bounty"
+        )}
+      </Button>
     </form>
   );
 }

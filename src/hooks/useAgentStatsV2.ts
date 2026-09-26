@@ -1,10 +1,10 @@
 "use client";
 
 import { useReadContracts } from "wagmi";
-import { zenthraCuratorAbi } from "@/config/abis";
+import { zenthraCuratorV2Abi } from "@/config/abis/zenthraCuratorV2";
 import { zenthraCuratorV2Address } from "@/config/contracts";
 import { arcMainnet } from "@/config/chains";
-import type { AgentStats } from "@/config/abis/zenthraCurator";
+
 
 const CONTRACT = zenthraCuratorV2Address;
 
@@ -19,21 +19,21 @@ export function useAgentStatsV2(agentId: number | undefined) {
     contracts: [
       {
         address: CONTRACT,
-        abi: zenthraCuratorAbi,
+        abi: zenthraCuratorV2Abi,
         functionName: "getAgentStats",
         args: [agentIdBig],
         chainId: arcMainnet.id,
       },
       {
         address: CONTRACT,
-        abi: zenthraCuratorAbi,
+        abi: zenthraCuratorV2Abi,
         functionName: "getEndorsementCount",
         args: [agentIdBig],
         chainId: arcMainnet.id,
       },
       {
         address: CONTRACT,
-        abi: zenthraCuratorAbi,
+        abi: zenthraCuratorV2Abi,
         functionName: "isFeatured",
         args: [agentIdBig],
         chainId: arcMainnet.id,
@@ -42,7 +42,7 @@ export function useAgentStatsV2(agentId: number | undefined) {
     query: { enabled, staleTime: 30_000 },
   });
 
-  const rawStats = data?.[0]?.result as AgentStats | undefined;
+  const rawStats = data?.[0]?.result as { tasksCompleted: number; tasksDisputed: number; tasksCancelled: number; tasksResolved: number; totalEarned: bigint; totalVolume: bigint; } | undefined;
   const endorsementCount = data?.[1]?.result as bigint | undefined;
   const isFeatured = data?.[2]?.result as boolean | undefined;
 
@@ -64,7 +64,7 @@ export function usePendingWithdrawal(address: `0x${string}` | undefined) {
     contracts: [
       {
         address: CONTRACT,
-        abi: zenthraCuratorAbi,
+        abi: zenthraCuratorV2Abi,
         functionName: "pendingWithdrawals",
         args: [address ?? "0x0000000000000000000000000000000000000000"],
         chainId: arcMainnet.id,

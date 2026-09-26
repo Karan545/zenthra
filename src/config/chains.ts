@@ -1,13 +1,13 @@
 import { defineChain } from "viem";
 
 /**
- * Arc mainnet — the chain Zenthra talks to.
- * Wallets label this network "Arc" (chain id 5042).
+ * Arc Mainnet — chain ID 5042.
+ * USDC is the native gas token on Arc.
  * @see https://docs.arc.io
  */
-export const arc = defineChain({
+export const arcMainnet = defineChain({
   id: 5042,
-  name: "Arc",
+  name: "Arc Mainnet",
   nativeCurrency: {
     name: "USD Coin",
     symbol: "USDC",
@@ -27,10 +27,8 @@ export const arc = defineChain({
   testnet: false,
 });
 
-/**
- * Existing imports use this name. It is Arc mainnet.
- * Arc Testnet is a different network (chain id 5042002).
- */
-export const arcTestnet = arc;
+/** Alias kept for backward-compat with old imports */
+export const arc = arcMainnet;
+export const arcTestnet = arcMainnet;
 
-export type ArcChain = typeof arc;
+export type ArcChain = typeof arcMainnet;

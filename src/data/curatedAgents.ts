@@ -33,7 +33,7 @@ export const CURATED_AGENTS: CuratedAgent[] = [
       "Paste any wallet address and get a full portfolio breakdown across Ethereum, Base, Arbitrum, Polygon, and Optimism — with AI interpretation of holdings, risk flags, and activity patterns.",
     capabilities: ["Research", "Wallets", "Multi-chain", "Analytics", "DeFi"],
     pricePerTask: 1.0,
-    x402Endpoint: "/agent/arcscout",
+    x402Endpoint: "https://zenthra.xyz/api/agents/arcscout",
     tokenId: 0,
     initials: "AS",
     accentClass: "bg-[#d4c4b0]",

@@ -25,4 +25,6 @@ export type {
   GiveFeedbackResult,
 } from "./useGiveFeedback";
 export { useJobActions } from "./useJobActions";
+export * from "./useJobBoard";
+export * from "./useJobBoardWrite";
 export { useAgentJobs } from "./useAgentJobs";
