@@ -27,7 +27,7 @@ export function BidList({ job, onWinnerSelected }: BidListProps) {
   async function handleSelect(bidIndex: number) {
     setSelecting(bidIndex);
     try {
-      await selectWinner(job.id, bidIndex);
+      await selectWinner({ jobId: job.id, bidIndex });
       setDone(true);
       toast.success("Winner selected. They have 48 hours to accept.");
       onWinnerSelected?.();
