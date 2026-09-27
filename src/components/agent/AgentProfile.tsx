@@ -81,7 +81,7 @@ export function AgentProfile({ id }: AgentProfileProps) {
     refetch,
   } = useCuratorListings();
   const [tick, setTick] = useState(0);
-  const [jobsTick, setJobsTick] = useState(0);
+  const [, setJobsTick] = useState(0);
 
   useEffect(() => {
     const bump = () => setTick((n) => n + 1);

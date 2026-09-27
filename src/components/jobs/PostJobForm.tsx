@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { ConnectWallet } from "@/components/web3/ConnectWallet";
-import { usePostJob } from "@/hooks/useJobBoardWrite";
+import { useJobActions } from "@/hooks/useJobActions";
 import type { JobDraft } from "@/types/job";
 
 const EMPTY: JobDraft = {
@@ -36,7 +36,7 @@ interface PostJobFormProps {
 
 export function PostJobForm({ onPosted }: PostJobFormProps) {
   const { isConnected } = useAccount();
-  const { postJob, isPending } = usePostJob();
+  const { postJob, pending: isPending } = useJobActions();
 
   const [draft, setDraft] = useState<JobDraft>(EMPTY);
   const [errors, setErrors] = useState<Partial<Record<keyof JobDraft, string>>>({});
