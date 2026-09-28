@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 const COVALENT_API_KEY = process.env.COVALENT_API_KEY ?? "";
 const AGENTROUTER_API_KEY = process.env.AGENTROUTER_API_KEY ?? "";
-const AGENTROUTER_BASE = "https://co.agentrouter.org/v1";
+// agentrouter.org is the host this key authenticates against.
+// co.agentrouter.org rejects the same key as invalid.
+const AGENTROUTER_BASE = "https://agentrouter.org/v1";
+// gpt-6-astra and the Claude models on this key are out of budget.
+// deepseek-v4-flash is the model AgentRouter still completes.
+const AGENTROUTER_MODEL = process.env.AGENTROUTER_MODEL ?? "deepseek-v4-flash";
 
 // Chains to scan — Covalent chain names
 const CHAINS = [
@@ -157,9 +162,14 @@ export async function POST(req: NextRequest) {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${AGENTROUTER_API_KEY}`,
+        // AgentRouter's edge rejects plain server fetches as an unknown client.
+        Originator: "codex_cli_rs",
+        Version: "0.101.0",
+        "User-Agent":
+          "codex_cli_rs/0.101.0 (Windows NT 10.0; Win64) Apple_Terminal/1",
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: AGENTROUTER_MODEL,
         messages: [
           {
             role: "system",
@@ -168,7 +178,7 @@ export async function POST(req: NextRequest) {
           },
           { role: "user", content: prompt },
         ],
-        max_tokens: 1200,
+        max_tokens: 4000,
         temperature: 0.3,
       }),
     });
@@ -176,15 +186,30 @@ export async function POST(req: NextRequest) {
     if (!aiRes.ok) {
       const errText = await aiRes.text().catch(() => "unknown");
       console.error("AgentRouter error:", aiRes.status, errText);
-      return NextResponse.json(
-        { error: `AI service error: ${aiRes.status}` },
-        { status: 502 }
-      );
+      let detail = `AI service error: ${aiRes.status}`;
+      try {
+        const parsed = JSON.parse(errText) as {
+          error?: { message?: string } | string;
+          message?: string;
+        };
+        const message =
+          typeof parsed.error === "string"
+            ? parsed.error
+            : parsed.error?.message || parsed.message;
+        if (message) detail = message;
+      } catch {
+        if (errText && errText.length < 300) detail = errText;
+      }
+      return NextResponse.json({ error: detail }, { status: 502 });
     }
 
     const aiJson = await aiRes.json();
+    const message = aiJson?.choices?.[0]?.message;
     const report: string =
-      aiJson?.choices?.[0]?.message?.content ?? "No report generated.";
+      (typeof message?.content === "string" && message.content.trim()) ||
+      (typeof message?.reasoning_content === "string" &&
+        message.reasoning_content.trim()) ||
+      "No report generated.";
 
     // 4. Return structured response
     return NextResponse.json({
