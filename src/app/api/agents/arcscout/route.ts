@@ -1,10 +1,14 @@
+import https from "node:https";
 import { NextRequest, NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+// agentrouter.org answers the API from Mumbai. US regions get the site HTML.
+export const preferredRegion = "bom1";
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
 
 const COVALENT_API_KEY = process.env.COVALENT_API_KEY ?? "";
 const AGENTROUTER_API_KEY = process.env.AGENTROUTER_API_KEY ?? "";
-// agentrouter.org is the host this key authenticates against.
-// co.agentrouter.org rejects the same key as invalid.
-const AGENTROUTER_BASE = "https://agentrouter.org/v1";
 // gpt-6-astra and the Claude models on this key are out of budget.
 // deepseek-v4-flash is the model AgentRouter still completes.
 const AGENTROUTER_MODEL = process.env.AGENTROUTER_MODEL ?? "deepseek-v4-flash";
@@ -54,7 +58,7 @@ async function fetchChainBalances(
   label: string
 ): Promise<ChainResult> {
   try {
-    const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/balances_v2/?key=${COVALENT_API_KEY}&nft=false&no-nft-fetch=true`;
+    const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/balances_v2/?key=${COVALENT_API_KEY}&nft=false&no-nft-fetch=true&no-spam=true`;
     const res = await fetch(url, { next: { revalidate: 0 } });
     if (!res.ok) {
       return { chain: chainId, label, totalUsd: 0, tokens: [], error: `HTTP ${res.status}` };
@@ -129,6 +133,108 @@ Write a structured research report with these sections:
 Keep it factual, concise, and useful. Do not make up data. If a chain had no holdings, note it briefly. Use markdown formatting.`;
 }
 
+interface UpstreamResult {
+  status: number;
+  text: string;
+  setCookie: string[];
+}
+
+function requestAgentRouter(
+  body: string,
+  apiKey: string,
+  cookie?: string
+): Promise<UpstreamResult> {
+  return new Promise((resolve, reject) => {
+    const headers: Record<string, string | number> = {
+      "Content-Type": "application/json",
+      Accept: "application/json, text/plain, */*",
+      Authorization: `Bearer ${apiKey}`,
+      Originator: "codex_cli_rs",
+      Version: "0.101.0",
+      "User-Agent":
+        "codex_cli_rs/0.101.0 (Windows NT 10.0; Win64) Apple_Terminal/1",
+      "Content-Length": Buffer.byteLength(body),
+    };
+    if (cookie) headers.Cookie = cookie;
+
+    let settled = false;
+    const fail = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    };
+    const req = https.request(
+      {
+        hostname: "agentrouter.org",
+        path: "/v1/chat/completions",
+        method: "POST",
+        headers,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        let received = 0;
+        res.on("data", (chunk: Buffer) => {
+          received += chunk.length;
+          if (received > 2_000_000) {
+            fail(new Error("AgentRouter response too large"));
+            req.destroy();
+            return;
+          }
+          chunks.push(chunk);
+        });
+        res.on("end", () => {
+          if (settled) return;
+          settled = true;
+          const raw = res.headers["set-cookie"];
+          const setCookie = Array.isArray(raw) ? raw : raw ? [raw] : [];
+          resolve({
+            status: res.statusCode ?? 0,
+            text: Buffer.concat(chunks).toString("utf8"),
+            setCookie,
+          });
+        });
+      }
+    );
+    req.on("error", (error) => fail(error));
+    req.setTimeout(50_000, () => {
+      req.destroy(new Error("AgentRouter request timed out"));
+    });
+    req.write(body);
+    req.end();
+  });
+}
+
+function acwCookie(setCookie: string[]): string {
+  return setCookie
+    .map((line) => line.split(";")[0]?.trim() ?? "")
+    .filter((part) => part.startsWith("acw_"))
+    .join("; ");
+}
+
+function isHtml(text: string): boolean {
+  return text.trimStart().startsWith("<");
+}
+
+function upstreamError(status: number, text: string): string {
+  if (isHtml(text)) {
+    return `AI gateway returned a web page instead of a report (HTTP ${status}).`;
+  }
+  try {
+    const parsed = JSON.parse(text) as {
+      error?: { message?: string } | string;
+      message?: string;
+    };
+    const message =
+      typeof parsed.error === "string"
+        ? parsed.error
+        : parsed.error?.message || parsed.message;
+    if (message) return message;
+  } catch {
+    if (text && text.length < 300) return text;
+  }
+  return `AI gateway returned HTTP ${status}.`;
+}
+
 export async function POST(req: NextRequest) {
   try {
     // 1. Parse + validate input
@@ -157,53 +263,49 @@ export async function POST(req: NextRequest) {
     // 3. Build prompt + call AgentRouter
     const prompt = buildPrompt(address, results);
 
-    const aiRes = await fetch(`${AGENTROUTER_BASE}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${AGENTROUTER_API_KEY}`,
-        // AgentRouter's edge rejects plain server fetches as an unknown client.
-        Originator: "codex_cli_rs",
-        Version: "0.101.0",
-        "User-Agent":
-          "codex_cli_rs/0.101.0 (Windows NT 10.0; Win64) Apple_Terminal/1",
-      },
-      body: JSON.stringify({
-        model: AGENTROUTER_MODEL,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are ArcScout, a professional on-chain wallet research agent for the Zenthra platform. You produce accurate, structured markdown research reports based on real blockchain data. Be concise, factual, and useful.",
-          },
-          { role: "user", content: prompt },
-        ],
-        max_tokens: 4000,
-        temperature: 0.3,
-      }),
+    const payload = JSON.stringify({
+      model: AGENTROUTER_MODEL,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are ArcScout, a professional on-chain wallet research agent for the Zenthra platform. You produce accurate, structured markdown research reports based on real blockchain data. Be concise, factual, and useful.",
+        },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 4000,
+      temperature: 0.3,
     });
 
-    if (!aiRes.ok) {
-      const errText = await aiRes.text().catch(() => "unknown");
-      console.error("AgentRouter error:", aiRes.status, errText);
-      let detail = `AI service error: ${aiRes.status}`;
-      try {
-        const parsed = JSON.parse(errText) as {
-          error?: { message?: string } | string;
-          message?: string;
-        };
-        const message =
-          typeof parsed.error === "string"
-            ? parsed.error
-            : parsed.error?.message || parsed.message;
-        if (message) detail = message;
-      } catch {
-        if (errText && errText.length < 300) detail = errText;
+    // Node HTTPS does not follow the redirect onto the marketing homepage.
+    let upstream = await requestAgentRouter(payload, AGENTROUTER_API_KEY);
+    if (
+      (upstream.status >= 300 && upstream.status < 400) ||
+      isHtml(upstream.text)
+    ) {
+      const cookie = acwCookie(upstream.setCookie);
+      if (cookie) {
+        upstream = await requestAgentRouter(
+          payload,
+          AGENTROUTER_API_KEY,
+          cookie
+        );
       }
+    }
+
+    if (
+      upstream.status < 200 ||
+      upstream.status >= 300 ||
+      isHtml(upstream.text)
+    ) {
+      const detail = upstreamError(upstream.status, upstream.text);
+      console.error("AgentRouter error:", upstream.status, detail);
       return NextResponse.json({ error: detail }, { status: 502 });
     }
 
-    const aiJson = await aiRes.json();
+    const aiJson = JSON.parse(upstream.text) as {
+      choices?: { message?: { content?: string; reasoning_content?: string } }[];
+    };
     const message = aiJson?.choices?.[0]?.message;
     const report: string =
       (typeof message?.content === "string" && message.content.trim()) ||
@@ -224,8 +326,12 @@ export async function POST(req: NextRequest) {
       generatedAt: new Date().toISOString(),
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = e instanceof Error ? e.message : "Internal error. Please try again.";
     console.error("ArcScout error:", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const safe =
+      msg.length < 200 && !msg.includes("<")
+        ? msg
+        : "Internal error. Please try again.";
+    return NextResponse.json({ error: safe }, { status: 500 });
   }
 }
