@@ -200,11 +200,10 @@ export function useCuratorListings() {
 
   const isError =
     curatorLive &&
-    (contractMissing || idsQuery.isError || enrichedQuery.isError);
+    !contractMissing &&
+    (idsQuery.isError || enrichedQuery.isError);
   const error = contractMissing
-    ? new Error(
-        "The listings contract is not deployed on Arc mainnet yet, so there are no on-chain listings to show."
-      )
+    ? null
     : ((idsQuery.error as Error | null) ??
       (enrichedQuery.error as Error | null) ??
       null);
@@ -215,6 +214,7 @@ export function useCuratorListings() {
     isLoading,
     isError,
     error,
+    contractMissing,
     refetch: async () => {
       await idsQuery.refetch();
       await enrichedQuery.refetch();

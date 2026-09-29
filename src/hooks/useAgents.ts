@@ -28,6 +28,8 @@ export interface UseAgentsResult {
   isLoading: boolean;
   isError: boolean;
   error: Error | null;
+  /** Curator address has no code on this chain. */
+  contractMissing: boolean;
   refetch: () => void;
 }
 
@@ -44,6 +46,7 @@ export function useAgents(options: UseAgentsOptions = {}): UseAgentsResult {
     isLoading: curatorLoading,
     isError: curatorError,
     error: curatorErr,
+    contractMissing,
     refetch: refetchCurator,
   } = useCuratorListings();
 
@@ -89,6 +92,7 @@ export function useAgents(options: UseAgentsOptions = {}): UseAgentsResult {
     isLoading: curatorLoading,
     isError: curatorError,
     error: curatorErr,
+    contractMissing,
     refetch,
   };
 }

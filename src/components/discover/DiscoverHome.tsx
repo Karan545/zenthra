@@ -21,8 +21,16 @@ import { CURATED_AGENTS } from "@/data/curatedAgents";
  */
 export function DiscoverHome() {
   const [search, setSearch] = useState("");
-  const { agents, allListed, listedCount, isLoading, isError, error, refetch } =
-    useAgents({ search });
+  const {
+    agents,
+    allListed,
+    listedCount,
+    isLoading,
+    isError,
+    error,
+    contractMissing,
+    refetch,
+  } = useAgents({ search });
 
   const recent = useMemo(() => {
     // When searching, show filtered results; else recent slice
@@ -243,7 +251,14 @@ export function DiscoverHome() {
                   {isLoading ? (
                     <AgentGridSkeleton count={8} />
                   ) : allListed.length === 0 ? (
-                    <DiscoverEmptyState />
+                    <DiscoverEmptyState
+                      description={
+                        contractMissing
+                          ? "ZenthraCurator is not deployed on Arc mainnet yet, so there are no on-chain listings."
+                          : undefined
+                      }
+                      showRegister={!contractMissing}
+                    />
                   ) : (
                     <div className="agent-grid">
                       {recent.map((agent, i) => (

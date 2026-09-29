@@ -139,23 +139,24 @@ interface UpstreamResult {
   setCookie: string[];
 }
 
-function requestAgentRouter(
-  body: string,
-  apiKey: string,
-  cookie?: string
-): Promise<UpstreamResult> {
+const WAF_COOKIE_NAMES = new Set([
+  "acw_tc",
+  "acw_sc__v2",
+  "acw_sc__v3",
+  "cdn_sec_tc",
+]);
+
+function httpsCall(options: {
+  method: "GET" | "POST";
+  path: string;
+  headers: Record<string, string>;
+  body?: string;
+}): Promise<UpstreamResult> {
   return new Promise((resolve, reject) => {
-    const headers: Record<string, string | number> = {
-      "Content-Type": "application/json",
-      Accept: "application/json, text/plain, */*",
-      Authorization: `Bearer ${apiKey}`,
-      Originator: "codex_cli_rs",
-      Version: "0.101.0",
-      "User-Agent":
-        "codex_cli_rs/0.101.0 (Windows NT 10.0; Win64) Apple_Terminal/1",
-      "Content-Length": Buffer.byteLength(body),
-    };
-    if (cookie) headers.Cookie = cookie;
+    const headers: Record<string, string | number> = { ...options.headers };
+    if (options.body != null) {
+      headers["Content-Length"] = Buffer.byteLength(options.body);
+    }
 
     let settled = false;
     const fail = (error: Error) => {
@@ -166,8 +167,8 @@ function requestAgentRouter(
     const req = https.request(
       {
         hostname: "agentrouter.org",
-        path: "/v1/chat/completions",
-        method: "POST",
+        path: options.path,
+        method: options.method,
         headers,
       },
       (res) => {
@@ -199,16 +200,67 @@ function requestAgentRouter(
     req.setTimeout(50_000, () => {
       req.destroy(new Error("AgentRouter request timed out"));
     });
-    req.write(body);
+    if (options.body != null) req.write(options.body);
     req.end();
   });
 }
 
-function acwCookie(setCookie: string[]): string {
+function wafCookie(setCookie: string[]): string {
   return setCookie
     .map((line) => line.split(";")[0]?.trim() ?? "")
-    .filter((part) => part.startsWith("acw_"))
+    .filter((part) => {
+      const eq = part.indexOf("=");
+      if (eq < 1) return false;
+      const name = part.slice(0, eq);
+      const value = part.slice(eq + 1);
+      return WAF_COOKIE_NAMES.has(name) && value.length > 0;
+    })
     .join("; ");
+}
+
+function mergeCookies(current: string, fresh: string): string {
+  const map = new Map<string, string>();
+  for (const part of `${current}; ${fresh}`.split(";")) {
+    const trimmed = part.trim();
+    const eq = trimmed.indexOf("=");
+    if (eq < 1) continue;
+    map.set(trimmed.slice(0, eq), trimmed);
+  }
+  return [...map.values()].join("; ");
+}
+
+async function warmupAgentRouter(): Promise<string> {
+  const page = await httpsCall({
+    method: "GET",
+    path: "/",
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+    },
+  });
+  return wafCookie(page.setCookie);
+}
+
+function completeAgentRouter(
+  body: string,
+  apiKey: string,
+  cookie: string
+): Promise<UpstreamResult> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json, text/plain, */*",
+    Authorization: `Bearer ${apiKey}`,
+    "User-Agent": "opencode/1.18.25",
+  };
+  if (cookie) headers.Cookie = cookie;
+  return httpsCall({
+    method: "POST",
+    path: "/v1/chat/completions",
+    headers,
+    body,
+  });
 }
 
 function isHtml(text: string): boolean {
@@ -277,20 +329,22 @@ export async function POST(req: NextRequest) {
       temperature: 0.3,
     });
 
-    // Node HTTPS does not follow the redirect onto the marketing homepage.
-    let upstream = await requestAgentRouter(payload, AGENTROUTER_API_KEY);
-    if (
-      (upstream.status >= 300 && upstream.status < 400) ||
-      isHtml(upstream.text)
-    ) {
-      const cookie = acwCookie(upstream.setCookie);
-      if (cookie) {
-        upstream = await requestAgentRouter(
-          payload,
-          AGENTROUTER_API_KEY,
-          cookie
-        );
-      }
+    // The edge serves the marketing site until it has seen a browser visit
+    // and a current CLI user agent.
+    let cookie = await warmupAgentRouter();
+    let upstream = await completeAgentRouter(
+      payload,
+      AGENTROUTER_API_KEY,
+      cookie
+    );
+    if (isHtml(upstream.text) || (upstream.status >= 300 && upstream.status < 400)) {
+      cookie = mergeCookies(cookie, wafCookie(upstream.setCookie));
+      if (!cookie) cookie = await warmupAgentRouter();
+      upstream = await completeAgentRouter(
+        payload,
+        AGENTROUTER_API_KEY,
+        cookie
+      );
     }
 
     if (

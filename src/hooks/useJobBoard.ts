@@ -103,12 +103,16 @@ export function useOpenJobs(): {
     data: openIds,
     isLoading: loadingIds,
     isError: errIds,
+    error: idsError,
     refetch,
   } = useReadContract({
     address,
     abi: zenthraJobBoardAbi,
     functionName: "getOpenJobs",
   });
+  const contractMissing =
+    errIds &&
+    (idsError?.message ?? "").includes('returned no data ("0x")');
 
   const ids = (openIds as bigint[] | undefined) ?? [];
 
@@ -130,8 +134,8 @@ export function useOpenJobs(): {
 
   return {
     jobs,
-    isLoading: loadingIds || loadingJobs,
-    isError: errIds || errJobs,
+    isLoading: !contractMissing && (loadingIds || loadingJobs),
+    isError: !contractMissing && (errIds || errJobs),
     refetch,
   };
 }
