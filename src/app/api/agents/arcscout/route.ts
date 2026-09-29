@@ -224,10 +224,8 @@ export async function POST(req: NextRequest) {
       generatedAt: new Date().toISOString(),
     });
   } catch (e) {
-    console.error("ArcScout error:", e);
-    return NextResponse.json(
-      { error: "Internal error. Please try again." },
-      { status: 500 }
-    );
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("ArcScout error:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
