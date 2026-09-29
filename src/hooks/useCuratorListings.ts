@@ -190,16 +190,24 @@ export function useCuratorListings() {
   });
 
   const curatorLive = isDeployedAddress(zenthraCuratorAddress);
+  const contractMissing =
+    idsQuery.isError &&
+    (idsQuery.error?.message ?? "").includes('returned no data ("0x")');
   const isLoading =
     curatorLive &&
+    !contractMissing &&
     (idsQuery.isLoading || (agentIds.length > 0 && enrichedQuery.isLoading));
 
   const isError =
-    curatorLive && (idsQuery.isError || enrichedQuery.isError);
-  const error =
-    (idsQuery.error as Error | null) ??
-    (enrichedQuery.error as Error | null) ??
-    null;
+    curatorLive &&
+    (contractMissing || idsQuery.isError || enrichedQuery.isError);
+  const error = contractMissing
+    ? new Error(
+        "The listings contract is not deployed on Arc mainnet yet, so there are no on-chain listings to show."
+      )
+    : ((idsQuery.error as Error | null) ??
+      (enrichedQuery.error as Error | null) ??
+      null);
 
   return {
     agents: enrichedQuery.data ?? [],

@@ -1,4 +1,10 @@
+import path from "node:path";
 import type { NextConfig } from "next";
+
+const asyncStorageStub = path.join(
+  process.cwd(),
+  "src/stubs/async-storage.js"
+);
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@rainbow-me/rainbowkit"],
@@ -9,6 +15,10 @@ const nextConfig: NextConfig = {
       fs: false,
       net: false,
       tls: false,
+    };
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@react-native-async-storage/async-storage": asyncStorageStub,
     };
     return config;
   },
