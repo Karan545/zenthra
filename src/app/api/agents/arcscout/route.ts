@@ -1,4 +1,3 @@
-import http2 from "node:http2";
 import https from "node:https";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -153,7 +152,6 @@ interface UpstreamResult {
 }
 
 type Wire = "chat" | "messages";
-type Transport = "h1" | "h2";
 
 type Attempt =
   | { kind: "report"; report: string; model: string }
@@ -178,7 +176,10 @@ function isHtml(text: string): boolean {
 }
 
 function isTimeout(error: unknown): boolean {
-  return error instanceof Error && error.message.toLowerCase().includes("timed out");
+  if (!(error instanceof Error)) return false;
+  const name = error.name.toLowerCase();
+  const message = error.message.toLowerCase();
+  return name.includes("timeout") || message.includes("timed out") || message.includes("timeout");
 }
 
 function upstreamError(status: number, text: string): string {
@@ -361,61 +362,55 @@ async function httpsCallPreferV4(
   }
 }
 
-function http2Call(
+async function fetchCall(
   path: string,
   headers: Record<string, string>,
   body: string,
   timeoutMs: number
 ): Promise<UpstreamResult> {
-  return new Promise((resolve, reject) => {
-    const client = http2.connect(`https://${HOST}`);
-    let settled = false;
-    const finish = (error?: Error, result?: UpstreamResult) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      client.close();
-      if (error) reject(error);
-      else resolve(result as UpstreamResult);
-    };
-    const timer = setTimeout(() => {
-      finish(new Error("AgentRouter request timed out"));
-    }, timeoutMs);
-    client.on("error", (error) => finish(error));
-
-    const req = client.request({
-      ":method": "POST",
-      ":path": path,
-      ...headers,
-    });
-    req.on("error", (error) => finish(error));
-    const chunks: Buffer[] = [];
-    let received = 0;
-    req.on("response", (responseHeaders) => {
-      const status = Number(responseHeaders[":status"] ?? 0);
-      req.on("data", (chunk: Buffer) => {
-        received += chunk.length;
-        if (received > 4_000_000) {
-          finish(new Error("AgentRouter response too large"));
-          return;
-        }
-        chunks.push(chunk);
-      });
-      req.on("end", () => {
-        finish(undefined, {
-          status,
-          text: Buffer.concat(chunks).toString("utf8"),
-        });
-      });
-    });
-    req.end(body);
+  const res = await fetch(`https://${HOST}${path}`, {
+    method: "POST",
+    headers,
+    body,
+    cache: "no-store",
+    redirect: "manual",
+    signal: AbortSignal.timeout(timeoutMs),
   });
+  const text = await res.text();
+  if (text.length > 4_000_000) {
+    throw new Error("AgentRouter response too large");
+  }
+  return { status: res.status, text };
+}
+
+function classify(
+  model: string,
+  wire: Wire,
+  via: string,
+  upstream: UpstreamResult
+): Attempt {
+  if (isHtml(upstream.text)) {
+    console.error("ArcScout upstream html", model, wire, via, upstream.status);
+    return {
+      kind: "html",
+      error: `AI gateway returned its website instead of a report (HTTP ${upstream.status}).`,
+    };
+  }
+  if (upstream.status === 401 || upstream.status === 403) {
+    return { kind: "auth", error: upstreamError(upstream.status, upstream.text) };
+  }
+  if (upstream.status < 200 || upstream.status >= 300) {
+    console.error("ArcScout upstream status", model, wire, via, upstream.status);
+    return { kind: "model", error: upstreamError(upstream.status, upstream.text) };
+  }
+  const report = extractReport(upstream.text);
+  if (!report) return { kind: "model", error: "No report generated." };
+  return { kind: "report", report, model };
 }
 
 async function once(
   model: string,
   wire: Wire,
-  via: Transport,
   prompt: string,
   apiKey: string,
   timeoutMs: number
@@ -423,37 +418,33 @@ async function once(
   const path = wire === "chat" ? "/v1/chat/completions" : "/v1/messages";
   const body = wire === "chat" ? chatBody(model, prompt) : messagesBody(model, prompt);
   const headers = requestHeaders(apiKey, wire);
-  try {
-    const upstream =
-      via === "h1"
-        ? await httpsCallPreferV4(path, headers, body, timeoutMs)
-        : await http2Call(path, headers, body, timeoutMs);
-    if (isHtml(upstream.text)) {
-      console.error("ArcScout upstream html", model, wire, via, upstream.status);
-      return {
-        kind: "html",
-        error: `AI gateway returned its website instead of a report (HTTP ${upstream.status}).`,
-      };
+  let last: Attempt = {
+    kind: "html",
+    error: "AI gateway returned its website instead of a report (HTTP 200).",
+  };
+
+  for (const via of ["fetch", "https"] as const) {
+    try {
+      const upstream =
+        via === "fetch"
+          ? await fetchCall(path, headers, body, timeoutMs)
+          : await httpsCallPreferV4(path, headers, body, timeoutMs);
+      const attempt = classify(model, wire, via, upstream);
+      if (attempt.kind !== "html") return attempt;
+      last = attempt;
+    } catch (error) {
+      if (isTimeout(error)) {
+        console.error("ArcScout upstream timeout", model, wire, via);
+        return { kind: "timeout", error: "AI gateway timed out before a report was ready." };
+      }
+      const message = error instanceof Error ? error.message : "AgentRouter request failed";
+      console.error("ArcScout upstream error", model, wire, via, message);
+      if (via === "https") {
+        return { kind: "model", error: "AI gateway request failed." };
+      }
     }
-    if (upstream.status === 401 || upstream.status === 403) {
-      return { kind: "auth", error: upstreamError(upstream.status, upstream.text) };
-    }
-    if (upstream.status < 200 || upstream.status >= 300) {
-      console.error("ArcScout upstream status", model, wire, via, upstream.status);
-      return { kind: "model", error: upstreamError(upstream.status, upstream.text) };
-    }
-    const report = extractReport(upstream.text);
-    if (!report) return { kind: "model", error: "No report generated." };
-    return { kind: "report", report, model };
-  } catch (error) {
-    if (isTimeout(error)) {
-      console.error("ArcScout upstream timeout", model, wire, via);
-      return { kind: "timeout", error: "AI gateway timed out before a report was ready." };
-    }
-    const message = error instanceof Error ? error.message : "AgentRouter request failed";
-    console.error("ArcScout upstream error", model, wire, via, message);
-    return { kind: "model", error: message.slice(0, 300) };
   }
+  return last;
 }
 
 async function tryModel(
@@ -471,22 +462,12 @@ async function tryModel(
 
   for (const wire of wires) {
     const budget = Math.min(capMs, deadline - Date.now() - 500);
-    if (budget < 4_000) return last.kind === "html" ? last : { kind: "timeout", error: last.error };
-    const first = await once(model, wire, "h1", prompt, apiKey, budget);
-    if (first.kind === "report" || first.kind === "auth" || first.kind === "timeout") {
-      return first;
+    if (budget < 4_000) return last;
+    const attempt = await once(model, wire, prompt, apiKey, budget);
+    if (attempt.kind === "report" || attempt.kind === "auth" || attempt.kind === "timeout") {
+      return attempt;
     }
-    if (first.kind !== "html") {
-      last = first;
-      continue;
-    }
-    const secondBudget = Math.min(capMs, deadline - Date.now() - 500);
-    if (secondBudget < 4_000) return first;
-    const second = await once(model, wire, "h2", prompt, apiKey, secondBudget);
-    if (second.kind === "report" || second.kind === "auth" || second.kind === "timeout") {
-      return second;
-    }
-    last = second;
+    last = attempt;
   }
   return last;
 }
@@ -506,9 +487,9 @@ async function completeReport(
     if (deadline - Date.now() < 5_000) break;
     const attempt = await tryModel(model, prompt, apiKey, deadline, cap);
     if (attempt.kind === "report") return { report: attempt.report, model: attempt.model };
-    if (attempt.kind === "auth") return { error: attempt.error };
+    if (attempt.kind === "auth" || attempt.kind === "html") return { error: attempt.error };
     lastError = attempt.error;
-    if (attempt.kind !== "html") blockedByWebsite = false;
+    blockedByWebsite = false;
     if (attempt.kind === "timeout") break;
   }
 
