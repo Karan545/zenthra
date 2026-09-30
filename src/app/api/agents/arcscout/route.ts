@@ -1,19 +1,30 @@
+import http2 from "node:http2";
 import https from "node:https";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
-// agentrouter.org answers the API from Mumbai. US regions get the site HTML.
 export const preferredRegion = "bom1";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
 const COVALENT_API_KEY = process.env.COVALENT_API_KEY ?? "";
 const AGENTROUTER_API_KEY = process.env.AGENTROUTER_API_KEY ?? "";
-// gpt-6-astra and the Claude models on this key are out of budget.
-// deepseek-v4-flash is the model AgentRouter still completes.
-const AGENTROUTER_MODEL = process.env.AGENTROUTER_MODEL ?? "deepseek-v4-flash";
+const HOST = "agentrouter.org";
 
-// Chains to scan — Covalent chain names
+// deepseek-v4-flash is demoted on AgentRouter. These three are still routed.
+// Claude Opus 5 has the highest availability and the fastest slow-start time.
+const PRIMARY_MODELS = ["claude-opus-5", "gpt-6-astra", "claude-opus-4-8"];
+const LAST_RESORT_MODEL = "deepseek-v4-flash";
+const ANTHROPIC_MODELS = new Set([
+  "claude-opus-5",
+  "claude-opus-4-8",
+  "deepseek-v4-flash",
+  "glm-5.3",
+]);
+
+const SYSTEM_PROMPT =
+  "You are ArcScout, a professional on-chain wallet research agent for the Zenthra platform. You produce accurate, structured markdown research reports based on real blockchain data. Be concise, factual, and useful.";
+
 const CHAINS = [
   { id: "eth-mainnet", label: "Ethereum" },
   { id: "base-mainnet", label: "Base" },
@@ -27,7 +38,7 @@ interface TokenBalance {
   contract_ticker_symbol: string;
   balance: string;
   contract_decimals: number;
-  quote: number; // USD value
+  quote: number;
   quote_rate: number;
   contract_address: string;
   type: string;
@@ -59,7 +70,10 @@ async function fetchChainBalances(
 ): Promise<ChainResult> {
   try {
     const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/balances_v2/?key=${COVALENT_API_KEY}&nft=false&no-nft-fetch=true&no-spam=true`;
-    const res = await fetch(url, { next: { revalidate: 0 } });
+    const res = await fetch(url, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(8_000),
+    });
     if (!res.ok) {
       return { chain: chainId, label, totalUsd: 0, tokens: [], error: `HTTP ${res.status}` };
     }
@@ -69,7 +83,7 @@ async function fetchChainBalances(
     }
 
     const tokens = json.data.items
-      .filter((t) => t.quote > 0.01) // skip dust
+      .filter((t) => t.quote > 0.01)
       .map((t) => ({
         symbol: t.contract_ticker_symbol || t.contract_name || "UNKNOWN",
         balance: (
@@ -79,7 +93,7 @@ async function fetchChainBalances(
         type: t.type,
       }))
       .sort((a, b) => b.usd - a.usd)
-      .slice(0, 10); // top 10 per chain
+      .slice(0, 10);
 
     const totalUsd = tokens.reduce((sum, t) => sum + t.usd, 0);
     return { chain: chainId, label, totalUsd, tokens };
@@ -136,140 +150,40 @@ Keep it factual, concise, and useful. Do not make up data. If a chain had no hol
 interface UpstreamResult {
   status: number;
   text: string;
-  setCookie: string[];
 }
 
-const WAF_COOKIE_NAMES = new Set([
-  "acw_tc",
-  "acw_sc__v2",
-  "acw_sc__v3",
-  "cdn_sec_tc",
-]);
+type Wire = "chat" | "messages";
+type Transport = "h1" | "h2";
 
-function httpsCall(options: {
-  method: "GET" | "POST";
-  path: string;
-  headers: Record<string, string>;
-  body?: string;
-}): Promise<UpstreamResult> {
-  return new Promise((resolve, reject) => {
-    const headers: Record<string, string | number> = { ...options.headers };
-    if (options.body != null) {
-      headers["Content-Length"] = Buffer.byteLength(options.body);
-    }
+type Attempt =
+  | { kind: "report"; report: string; model: string }
+  | { kind: "auth"; error: string }
+  | { kind: "model"; error: string }
+  | { kind: "timeout"; error: string }
+  | { kind: "html"; error: string };
 
-    let settled = false;
-    const fail = (error: Error) => {
-      if (settled) return;
-      settled = true;
-      reject(error);
-    };
-    const req = https.request(
-      {
-        hostname: "agentrouter.org",
-        path: options.path,
-        method: options.method,
-        headers,
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        let received = 0;
-        res.on("data", (chunk: Buffer) => {
-          received += chunk.length;
-          if (received > 2_000_000) {
-            fail(new Error("AgentRouter response too large"));
-            req.destroy();
-            return;
-          }
-          chunks.push(chunk);
-        });
-        res.on("end", () => {
-          if (settled) return;
-          settled = true;
-          const raw = res.headers["set-cookie"];
-          const setCookie = Array.isArray(raw) ? raw : raw ? [raw] : [];
-          resolve({
-            status: res.statusCode ?? 0,
-            text: Buffer.concat(chunks).toString("utf8"),
-            setCookie,
-          });
-        });
-      }
-    );
-    req.on("error", (error) => fail(error));
-    req.setTimeout(50_000, () => {
-      req.destroy(new Error("AgentRouter request timed out"));
-    });
-    if (options.body != null) req.write(options.body);
-    req.end();
-  });
-}
-
-function wafCookie(setCookie: string[]): string {
-  return setCookie
-    .map((line) => line.split(";")[0]?.trim() ?? "")
-    .filter((part) => {
-      const eq = part.indexOf("=");
-      if (eq < 1) return false;
-      const name = part.slice(0, eq);
-      const value = part.slice(eq + 1);
-      return WAF_COOKIE_NAMES.has(name) && value.length > 0;
-    })
-    .join("; ");
-}
-
-function mergeCookies(current: string, fresh: string): string {
-  const map = new Map<string, string>();
-  for (const part of `${current}; ${fresh}`.split(";")) {
-    const trimmed = part.trim();
-    const eq = trimmed.indexOf("=");
-    if (eq < 1) continue;
-    map.set(trimmed.slice(0, eq), trimmed);
+function modelsToTry(): { primary: string[]; lastResort: string } {
+  const preferred = (process.env.AGENTROUTER_MODEL ?? "").trim();
+  if (!preferred || preferred === LAST_RESORT_MODEL) {
+    return { primary: [...PRIMARY_MODELS], lastResort: LAST_RESORT_MODEL };
   }
-  return [...map.values()].join("; ");
-}
-
-async function warmupAgentRouter(): Promise<string> {
-  const page = await httpsCall({
-    method: "GET",
-    path: "/",
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language": "en-US,en;q=0.9",
-    },
-  });
-  return wafCookie(page.setCookie);
-}
-
-function completeAgentRouter(
-  body: string,
-  apiKey: string,
-  cookie: string
-): Promise<UpstreamResult> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Accept: "application/json, text/plain, */*",
-    Authorization: `Bearer ${apiKey}`,
-    "User-Agent": "opencode/1.18.25",
+  return {
+    primary: [preferred, ...PRIMARY_MODELS.filter((model) => model !== preferred)],
+    lastResort: LAST_RESORT_MODEL,
   };
-  if (cookie) headers.Cookie = cookie;
-  return httpsCall({
-    method: "POST",
-    path: "/v1/chat/completions",
-    headers,
-    body,
-  });
 }
 
 function isHtml(text: string): boolean {
   return text.trimStart().startsWith("<");
 }
 
+function isTimeout(error: unknown): boolean {
+  return error instanceof Error && error.message.toLowerCase().includes("timed out");
+}
+
 function upstreamError(status: number, text: string): string {
   if (isHtml(text)) {
-    return `AI gateway returned a web page instead of a report (HTTP ${status}).`;
+    return `AI gateway returned its website instead of a report (HTTP ${status}).`;
   }
   try {
     const parsed = JSON.parse(text) as {
@@ -280,16 +194,335 @@ function upstreamError(status: number, text: string): string {
       typeof parsed.error === "string"
         ? parsed.error
         : parsed.error?.message || parsed.message;
-    if (message) return message;
+    if (message) return message.slice(0, 300);
   } catch {
-    if (text && text.length < 300) return text;
+    if (text && text.length < 300 && !text.includes("<")) return text;
   }
   return `AI gateway returned HTTP ${status}.`;
 }
 
+function textContent(content: unknown): string {
+  if (typeof content === "string") return content.trim();
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((part) => {
+      if (typeof part === "string") return part;
+      if (
+        part &&
+        typeof part === "object" &&
+        "text" in part &&
+        typeof (part as { text?: unknown }).text === "string"
+      ) {
+        return (part as { text: string }).text;
+      }
+      return "";
+    })
+    .join("")
+    .trim();
+}
+
+function stripThink(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+}
+
+function extractReport(text: string): string {
+  const json = JSON.parse(text) as {
+    choices?: { message?: { content?: unknown; reasoning_content?: unknown } }[];
+    content?: { type?: string; text?: string }[];
+  };
+  const message = json.choices?.[0]?.message;
+  if (message) {
+    const content = stripThink(textContent(message.content));
+    if (content) return content;
+    const reasoning = stripThink(textContent(message.reasoning_content));
+    if (reasoning) return reasoning;
+  }
+  if (Array.isArray(json.content)) {
+    const parts = json.content
+      .filter((block) => block?.type !== "thinking" && block?.type !== "redacted_thinking")
+      .map((block) => (typeof block?.text === "string" ? block.text.trim() : ""))
+      .filter(Boolean);
+    if (parts.length) return stripThink(parts.join("\n\n"));
+  }
+  return "";
+}
+
+function chatBody(model: string, prompt: string): string {
+  return JSON.stringify({
+    model,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: prompt },
+    ],
+    max_tokens: 1200,
+    temperature: 0.3,
+  });
+}
+
+function messagesBody(model: string, prompt: string): string {
+  return JSON.stringify({
+    model,
+    max_tokens: 1200,
+    temperature: 0.3,
+    system: SYSTEM_PROMPT,
+    messages: [{ role: "user", content: prompt }],
+  });
+}
+
+function requestHeaders(apiKey: string, wire: Wire): Record<string, string> {
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    accept: "application/json",
+    authorization: `Bearer ${apiKey}`,
+    "user-agent": "opencode/1.18.25",
+  };
+  if (wire === "messages") {
+    headers["x-api-key"] = apiKey;
+    headers["anthropic-version"] = "2023-06-01";
+  }
+  return headers;
+}
+
+function httpsCall(
+  path: string,
+  headers: Record<string, string>,
+  body: string,
+  timeoutMs: number,
+  family?: number
+): Promise<UpstreamResult> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (error?: Error, result?: UpstreamResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error) reject(error);
+      else resolve(result as UpstreamResult);
+    };
+    const timer = setTimeout(() => {
+      req.destroy(new Error("AgentRouter request timed out"));
+    }, timeoutMs);
+
+    const req = https.request(
+      {
+        hostname: HOST,
+        path,
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Length": Buffer.byteLength(body),
+        },
+        family,
+        servername: HOST,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        let received = 0;
+        res.on("data", (chunk: Buffer) => {
+          received += chunk.length;
+          if (received > 4_000_000) {
+            finish(new Error("AgentRouter response too large"));
+            req.destroy();
+            return;
+          }
+          chunks.push(chunk);
+        });
+        res.on("end", () => {
+          finish(undefined, {
+            status: res.statusCode ?? 0,
+            text: Buffer.concat(chunks).toString("utf8"),
+          });
+        });
+      }
+    );
+    req.on("error", (error) => finish(error));
+    req.write(body);
+    req.end();
+  });
+}
+
+async function httpsCallPreferV4(
+  path: string,
+  headers: Record<string, string>,
+  body: string,
+  timeoutMs: number
+): Promise<UpstreamResult> {
+  try {
+    return await httpsCall(path, headers, body, timeoutMs, 4);
+  } catch (error) {
+    const code =
+      error instanceof Error && "code" in error
+        ? String((error as { code?: string }).code ?? "")
+        : "";
+    if (code === "ENOTFOUND" || code === "EAI_AGAIN" || code === "EADDRNOTAVAIL") {
+      return httpsCall(path, headers, body, timeoutMs);
+    }
+    throw error;
+  }
+}
+
+function http2Call(
+  path: string,
+  headers: Record<string, string>,
+  body: string,
+  timeoutMs: number
+): Promise<UpstreamResult> {
+  return new Promise((resolve, reject) => {
+    const client = http2.connect(`https://${HOST}`);
+    let settled = false;
+    const finish = (error?: Error, result?: UpstreamResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      client.close();
+      if (error) reject(error);
+      else resolve(result as UpstreamResult);
+    };
+    const timer = setTimeout(() => {
+      finish(new Error("AgentRouter request timed out"));
+    }, timeoutMs);
+    client.on("error", (error) => finish(error));
+
+    const req = client.request({
+      ":method": "POST",
+      ":path": path,
+      ...headers,
+    });
+    req.on("error", (error) => finish(error));
+    const chunks: Buffer[] = [];
+    let received = 0;
+    req.on("response", (responseHeaders) => {
+      const status = Number(responseHeaders[":status"] ?? 0);
+      req.on("data", (chunk: Buffer) => {
+        received += chunk.length;
+        if (received > 4_000_000) {
+          finish(new Error("AgentRouter response too large"));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      req.on("end", () => {
+        finish(undefined, {
+          status,
+          text: Buffer.concat(chunks).toString("utf8"),
+        });
+      });
+    });
+    req.end(body);
+  });
+}
+
+async function once(
+  model: string,
+  wire: Wire,
+  via: Transport,
+  prompt: string,
+  apiKey: string,
+  timeoutMs: number
+): Promise<Attempt> {
+  const path = wire === "chat" ? "/v1/chat/completions" : "/v1/messages";
+  const body = wire === "chat" ? chatBody(model, prompt) : messagesBody(model, prompt);
+  const headers = requestHeaders(apiKey, wire);
+  try {
+    const upstream =
+      via === "h1"
+        ? await httpsCallPreferV4(path, headers, body, timeoutMs)
+        : await http2Call(path, headers, body, timeoutMs);
+    if (isHtml(upstream.text)) {
+      console.error("ArcScout upstream html", model, wire, via, upstream.status);
+      return {
+        kind: "html",
+        error: `AI gateway returned its website instead of a report (HTTP ${upstream.status}).`,
+      };
+    }
+    if (upstream.status === 401 || upstream.status === 403) {
+      return { kind: "auth", error: upstreamError(upstream.status, upstream.text) };
+    }
+    if (upstream.status < 200 || upstream.status >= 300) {
+      console.error("ArcScout upstream status", model, wire, via, upstream.status);
+      return { kind: "model", error: upstreamError(upstream.status, upstream.text) };
+    }
+    const report = extractReport(upstream.text);
+    if (!report) return { kind: "model", error: "No report generated." };
+    return { kind: "report", report, model };
+  } catch (error) {
+    if (isTimeout(error)) {
+      console.error("ArcScout upstream timeout", model, wire, via);
+      return { kind: "timeout", error: "AI gateway timed out before a report was ready." };
+    }
+    const message = error instanceof Error ? error.message : "AgentRouter request failed";
+    console.error("ArcScout upstream error", model, wire, via, message);
+    return { kind: "model", error: message.slice(0, 300) };
+  }
+}
+
+async function tryModel(
+  model: string,
+  prompt: string,
+  apiKey: string,
+  deadline: number,
+  capMs: number
+): Promise<Attempt> {
+  const wires: Wire[] = ANTHROPIC_MODELS.has(model) ? ["chat", "messages"] : ["chat"];
+  let last: Attempt = {
+    kind: "html",
+    error: "AI gateway returned its website instead of a report (HTTP 200).",
+  };
+
+  for (const wire of wires) {
+    const budget = Math.min(capMs, deadline - Date.now() - 500);
+    if (budget < 4_000) return last.kind === "html" ? last : { kind: "timeout", error: last.error };
+    const first = await once(model, wire, "h1", prompt, apiKey, budget);
+    if (first.kind === "report" || first.kind === "auth" || first.kind === "timeout") {
+      return first;
+    }
+    if (first.kind !== "html") {
+      last = first;
+      continue;
+    }
+    const secondBudget = Math.min(capMs, deadline - Date.now() - 500);
+    if (secondBudget < 4_000) return first;
+    const second = await once(model, wire, "h2", prompt, apiKey, secondBudget);
+    if (second.kind === "report" || second.kind === "auth" || second.kind === "timeout") {
+      return second;
+    }
+    last = second;
+  }
+  return last;
+}
+
+async function completeReport(
+  prompt: string,
+  apiKey: string
+): Promise<{ report: string; model: string } | { error: string }> {
+  const deadline = Date.now() + 48_000;
+  const { primary, lastResort } = modelsToTry();
+  let lastError = "AI gateway returned its website instead of a report (HTTP 200).";
+  let blockedByWebsite = true;
+
+  for (let index = 0; index < primary.length; index++) {
+    const model = primary[index];
+    const cap = index === 0 ? 34_000 : 16_000;
+    if (deadline - Date.now() < 5_000) break;
+    const attempt = await tryModel(model, prompt, apiKey, deadline, cap);
+    if (attempt.kind === "report") return { report: attempt.report, model: attempt.model };
+    if (attempt.kind === "auth") return { error: attempt.error };
+    lastError = attempt.error;
+    if (attempt.kind !== "html") blockedByWebsite = false;
+    if (attempt.kind === "timeout") break;
+  }
+
+  if (!blockedByWebsite && deadline - Date.now() > 5_000) {
+    const attempt = await tryModel(lastResort, prompt, apiKey, deadline, 12_000);
+    if (attempt.kind === "report") return { report: attempt.report, model: attempt.model };
+    if (attempt.kind !== "html") lastError = attempt.error;
+  }
+
+  return { error: lastError };
+}
+
 export async function POST(req: NextRequest) {
   try {
-    // 1. Parse + validate input
     const body = await req.json().catch(() => ({}));
     const address: string = (body.address ?? "").trim().toLowerCase();
 
@@ -307,76 +540,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Fetch all chains in parallel
     const results = await Promise.all(
       CHAINS.map((c) => fetchChainBalances(address, c.id, c.label))
     );
-
-    // 3. Build prompt + call AgentRouter
     const prompt = buildPrompt(address, results);
-
-    const payload = JSON.stringify({
-      model: AGENTROUTER_MODEL,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are ArcScout, a professional on-chain wallet research agent for the Zenthra platform. You produce accurate, structured markdown research reports based on real blockchain data. Be concise, factual, and useful.",
-        },
-        { role: "user", content: prompt },
-      ],
-      max_tokens: 4000,
-      temperature: 0.3,
-    });
-
-    // The edge serves the marketing site until it has seen a browser visit
-    // and a current CLI user agent.
-    let cookie = await warmupAgentRouter();
-    let upstream = await completeAgentRouter(
-      payload,
-      AGENTROUTER_API_KEY,
-      cookie
-    );
-    if (isHtml(upstream.text) || (upstream.status >= 300 && upstream.status < 400)) {
-      cookie = mergeCookies(cookie, wafCookie(upstream.setCookie));
-      if (!cookie) cookie = await warmupAgentRouter();
-      upstream = await completeAgentRouter(
-        payload,
-        AGENTROUTER_API_KEY,
-        cookie
-      );
+    const completed = await completeReport(prompt, AGENTROUTER_API_KEY);
+    if ("error" in completed) {
+      return NextResponse.json({ error: completed.error }, { status: 502 });
     }
 
-    if (
-      upstream.status < 200 ||
-      upstream.status >= 300 ||
-      isHtml(upstream.text)
-    ) {
-      const detail = upstreamError(upstream.status, upstream.text);
-      console.error("AgentRouter error:", upstream.status, detail);
-      return NextResponse.json({ error: detail }, { status: 502 });
-    }
-
-    const aiJson = JSON.parse(upstream.text) as {
-      choices?: { message?: { content?: string; reasoning_content?: string } }[];
-    };
-    const message = aiJson?.choices?.[0]?.message;
-    const report: string =
-      (typeof message?.content === "string" && message.content.trim()) ||
-      (typeof message?.reasoning_content === "string" &&
-        message.reasoning_content.trim()) ||
-      "No report generated.";
-
-    // 4. Return structured response
     return NextResponse.json({
       address,
+      model: completed.model,
       chainsScanned: CHAINS.length,
       activeChains: results.filter((r) => r.tokens.length > 0).length,
-      totalPortfolioUsd: Math.round(
-        results.reduce((s, r) => s + r.totalUsd, 0) * 100
-      ) / 100,
+      totalPortfolioUsd:
+        Math.round(results.reduce((s, r) => s + r.totalUsd, 0) * 100) / 100,
       chains: results,
-      report,
+      report: completed.report,
       generatedAt: new Date().toISOString(),
     });
   } catch (e) {
