@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, ExternalLink, ShieldCheck } from "lucide-react";
+import { ArrowRight, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CuratedAgent } from "@/data/curatedAgents";
 
@@ -79,27 +79,23 @@ export function CuratedAgentRow({ agent, index = 0 }: CuratedAgentRowProps) {
             </p>
           </div>
 
-          {agent.x402Endpoint && (
-            agent.x402Endpoint.startsWith("/") ? (
-              <Link
-                href={agent.x402Endpoint}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-[12px] font-medium text-white transition-colors hover:bg-primary-hover"
-              >
-                Try it
-                <ArrowRight size={12} strokeWidth={1.75} />
-              </Link>
-            ) : (
-              <a
-                href={agent.x402Endpoint}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-[12px] font-medium text-white transition-colors hover:bg-primary-hover"
-              >
-                Hire
-                <ExternalLink size={12} strokeWidth={1.75} />
-              </a>
-            )
-          )}
+          {agent.pagePath ? (
+            <Link
+              href={agent.pagePath}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-[12px] font-medium text-white transition-colors hover:bg-primary-hover"
+            >
+              Hire
+              <ArrowRight size={12} strokeWidth={1.75} />
+            </Link>
+          ) : agent.x402Endpoint?.startsWith("/") ? (
+            <Link
+              href={agent.x402Endpoint}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-[12px] font-medium text-white transition-colors hover:bg-primary-hover"
+            >
+              Try it
+              <ArrowRight size={12} strokeWidth={1.75} />
+            </Link>
+          ) : null}
         </div>
       </div>
     </motion.div>

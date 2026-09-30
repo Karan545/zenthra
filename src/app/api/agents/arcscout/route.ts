@@ -107,6 +107,129 @@ async function fetchChainBalances(
   }
 }
 
+const STABLE_SYMBOLS = new Set([
+  "USDC",
+  "USDT",
+  "DAI",
+  "USDE",
+  "USDS",
+  "FRAX",
+  "LUSD",
+  "GHO",
+  "CRVUSD",
+  "PYUSD",
+  "TUSD",
+  "USDP",
+  "GUSD",
+  "USD0",
+  "USDBC",
+  "SUSD",
+  "MIM",
+  "USDD",
+  "USDC.E",
+  "USDT.E",
+]);
+
+function usd(amount: number): string {
+  return amount.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function buildDataReport(address: string, results: ChainResult[]): string {
+  const total = results.reduce((sum, chain) => sum + chain.totalUsd, 0);
+  const active = results.filter((chain) => chain.tokens.length > 0);
+  const failed = results.filter((chain) => chain.error && chain.tokens.length === 0);
+  const holdings = results
+    .flatMap((chain) => chain.tokens.map((token) => ({ ...token, chain: chain.label })))
+    .sort((a, b) => b.usd - a.usd);
+  const stableUsd = holdings
+    .filter((token) => STABLE_SYMBOLS.has(token.symbol.toUpperCase()))
+    .reduce((sum, token) => sum + token.usd, 0);
+  const otherUsd = Math.max(0, Math.round((total - stableUsd) * 100) / 100);
+  const topChain = [...results].sort((a, b) => b.totalUsd - a.totalUsd)[0];
+  const topShare = total > 0 && topChain ? (topChain.totalUsd / total) * 100 : 0;
+  const topToken = holdings[0];
+  const topTokenShare = total > 0 && topToken ? (topToken.usd / total) * 100 : 0;
+
+  const chainLines = results.map((chain) => {
+    if (chain.error && chain.tokens.length === 0) {
+      return `- **${chain.label}**: scan failed (${chain.error})`;
+    }
+    if (chain.tokens.length === 0) {
+      return `- **${chain.label}**: no holdings above $0.01`;
+    }
+    const share = total > 0 ? ` (${((chain.totalUsd / total) * 100).toFixed(0)}%)` : "";
+    return `- **${chain.label}**: $${usd(chain.totalUsd)}${share}`;
+  });
+
+  const notable = holdings
+    .slice(0, 5)
+    .map((token) => `- **${token.symbol}** on ${token.chain}: ${token.balance} (~$${usd(token.usd)})`);
+
+  const risks = [
+    failed.length
+      ? `- ${failed.map((chain) => chain.label).join(", ")} did not return balances, so this report is incomplete.`
+      : "",
+    total === 0
+      ? "- No priced holdings above $0.01 were found on the scanned chains."
+      : topToken && topTokenShare >= 50
+        ? `- **${topToken.symbol}** is ${topTokenShare.toFixed(0)}% of the priced total, which is a concentration risk.`
+        : "",
+    "- This scan covers token balances. It leaves out transaction history and token approvals.",
+  ].filter(Boolean);
+
+  let pattern =
+    "Nothing priced showed up on these five chains. The address may be unused here, or the value may sit on a chain this scan does not cover.";
+  if (active.length === 1) {
+    pattern = `Priced value shows up on ${active[0].label}. That fits a wallet that mainly operates on one network.`;
+  } else if (active.length > 1 && topShare >= 80 && topChain) {
+    const others = active.length - 1;
+    pattern = `${topShare.toFixed(0)}% of the priced value is on ${topChain.label}, with smaller balances on ${others} other chain${others === 1 ? "" : "s"}.`;
+  } else if (active.length > 1) {
+    pattern = `Value is spread across ${active.length} chains. That fits a wallet that moves assets between networks.`;
+  }
+
+  const where =
+    topChain && topChain.totalUsd > 0 ? ` Most of that value is on ${topChain.label}.` : "";
+  const mix =
+    total === 0
+      ? ""
+      : stableUsd >= otherUsd
+        ? " Recognized stablecoins make up the larger share."
+        : " Other priced assets make up the larger share.";
+  const summary =
+    total === 0
+      ? `No holdings above $0.01 were priced on Ethereum, Base, Arbitrum, Polygon, or Optimism for \`${address}\`.${failed.length ? " Some chain scans failed, so a balance could have been missed." : ""}`
+      : `This wallet shows about $${usd(total)} across ${active.length} of ${results.length} scanned chains.${where}${mix}`;
+
+  return [
+    "## Portfolio Overview",
+    `Priced holdings total **$${usd(total)}** across **${active.length} of ${results.length}** scanned chains.`,
+    "",
+    chainLines.join("\n"),
+    "",
+    total > 0
+      ? `About **$${usd(stableUsd)}** is in recognized stablecoins and **$${usd(otherUsd)}** is in other priced assets.`
+      : "There is no stablecoin mix to report.",
+    "",
+    "## Notable Holdings",
+    notable.length ? notable.join("\n") : "_No token above $0.01._",
+    "",
+    "## Chain Activity Pattern",
+    pattern,
+    "",
+    "## Risk Flags",
+    risks.join("\n"),
+    "",
+    "## Summary",
+    summary,
+    "",
+    "_Figures are calculated from the balance scan._",
+  ].join("\n");
+}
+
 function buildPrompt(address: string, results: ChainResult[]): string {
   const totalPortfolio = results.reduce((s, r) => s + r.totalUsd, 0);
   const activeChains = results.filter((r) => r.tokens.length > 0);
@@ -464,7 +587,12 @@ async function tryModel(
     const budget = Math.min(capMs, deadline - Date.now() - 500);
     if (budget < 4_000) return last;
     const attempt = await once(model, wire, prompt, apiKey, budget);
-    if (attempt.kind === "report" || attempt.kind === "auth" || attempt.kind === "timeout") {
+    if (
+      attempt.kind === "report" ||
+      attempt.kind === "auth" ||
+      attempt.kind === "timeout" ||
+      attempt.kind === "html"
+    ) {
       return attempt;
     }
     last = attempt;
@@ -526,19 +654,22 @@ export async function POST(req: NextRequest) {
     );
     const prompt = buildPrompt(address, results);
     const completed = await completeReport(prompt, AGENTROUTER_API_KEY);
+    const report =
+      "error" in completed ? buildDataReport(address, results) : completed.report;
+    const model = "error" in completed ? "balances" : completed.model;
     if ("error" in completed) {
-      return NextResponse.json({ error: completed.error }, { status: 502 });
+      console.error("ArcScout model fallback:", completed.error);
     }
 
     return NextResponse.json({
       address,
-      model: completed.model,
+      model,
       chainsScanned: CHAINS.length,
       activeChains: results.filter((r) => r.tokens.length > 0).length,
       totalPortfolioUsd:
         Math.round(results.reduce((s, r) => s + r.totalUsd, 0) * 100) / 100,
       chains: results,
-      report: completed.report,
+      report,
       generatedAt: new Date().toISOString(),
     });
   } catch (e) {

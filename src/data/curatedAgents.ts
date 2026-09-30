@@ -16,6 +16,8 @@ export type CuratedAgent = {
   capabilities: string[];
   pricePerTask: number; // USDC
   x402Endpoint: string;
+  /** In-app page for this agent. Hire opens this instead of the POST-only API. */
+  pagePath?: string;
   /** Token ID in the ERC-8004 IdentityRegistry (0 if not yet minted) */
   tokenId: number;
   /** Avatar initials for the placeholder avatar */
@@ -34,6 +36,7 @@ export const CURATED_AGENTS: CuratedAgent[] = [
     capabilities: ["Research", "Wallets", "Multi-chain", "Analytics", "DeFi"],
     pricePerTask: 1.0,
     x402Endpoint: "https://zenthra.xyz/api/agents/arcscout",
+    pagePath: "/agent/arcscout",
     tokenId: 0,
     initials: "AS",
     accentClass: "bg-[#d4c4b0]",
