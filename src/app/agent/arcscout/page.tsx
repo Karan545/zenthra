@@ -1,9 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { ArrowLeft, Search, Zap, Shield, Globe, ChevronRight, Copy, Check } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from "wagmi";
+import { erc20Abi } from "@/config/abis";
+import { arcMainnet } from "@/config/chains";
+import { x402Amount, x402Asset, x402PayTo } from "@/config/x402";
+import { formatWalletError } from "@/lib/walletErrors";
 
 interface ArcScoutResult {
   address: string;
@@ -20,36 +26,150 @@ interface ArcScoutResult {
   }[];
 }
 
+type Phase = "idle" | "checking" | "wallet" | "confirming" | "analyzing";
+
 export default function ArcScoutPage() {
   const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
+  const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<ArcScoutResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [paidTx, setPaidTx] = useState<{ hash: `0x${string}`; payer: `0x${string}` } | null>(null);
+  const busy = useRef(false);
+
+  const { address: wallet, isConnected, chainId } = useAccount();
+  const { openConnectModal } = useConnectModal();
+  const { switchChainAsync } = useSwitchChain();
+  const { writeContractAsync } = useWriteContract();
+  const publicClient = usePublicClient({ chainId: arcMainnet.id });
+
+  const reusePayment =
+    Boolean(wallet && paidTx && paidTx.payer.toLowerCase() === wallet.toLowerCase());
 
   async function analyze() {
     const addr = address.trim();
-    if (!addr) return;
+    if (!isConnected || !wallet) {
+      openConnectModal?.();
+      setError("Connect your wallet on Arc Mainnet. Each report costs 1 USDC.");
+      return;
+    }
+    if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) {
+      setError("Enter a valid wallet address (0x and 40 hex characters).");
+      return;
+    }
+    if (busy.current) return;
+    busy.current = true;
     setLoading(true);
     setError(null);
     setResult(null);
+    let paymentHash: `0x${string}` | undefined;
 
     try {
+      paymentHash =
+        paidTx && paidTx.payer.toLowerCase() === wallet.toLowerCase() ? paidTx.hash : undefined;
+
+      if (!paymentHash) {
+        setPhase("checking");
+        const probe = await fetch("/api/agents/arcscout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address: addr }),
+        });
+        const probeJson = await probe.json().catch(() => ({}));
+        if (probe.status !== 402) {
+          setError(
+            probeJson.error ??
+              (probe.ok
+                ? "ArcScout did not ask for payment. Refresh and try again."
+                : "ArcScout is not available right now.")
+          );
+          return;
+        }
+
+        if (chainId !== arcMainnet.id) {
+          setPhase("wallet");
+          await switchChainAsync({ chainId: arcMainnet.id });
+        }
+        if (!publicClient) {
+          throw new Error("Could not reach Arc.");
+        }
+
+        let balance: bigint | null = null;
+        try {
+          balance = await publicClient.readContract({
+            address: x402Asset,
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [wallet],
+          });
+        } catch {
+          balance = null;
+        }
+        if (balance !== null && balance < x402Amount) {
+          setError("You need at least 1 USDC on Arc Mainnet to pay for this report.");
+          return;
+        }
+
+        setPhase("wallet");
+        const hash = await writeContractAsync({
+          address: x402Asset,
+          abi: erc20Abi,
+          functionName: "transfer",
+          args: [x402PayTo, x402Amount],
+          chainId: arcMainnet.id,
+        });
+        setPaidTx({ hash, payer: wallet });
+        paymentHash = hash;
+
+        setPhase("confirming");
+        const receipt = await publicClient.waitForTransactionReceipt({
+          hash,
+          timeout: 90_000,
+        });
+        if (receipt.status !== "success") {
+          setPaidTx(null);
+          setError("The USDC transfer reverted. Nothing was charged for the report.");
+          return;
+        }
+      }
+
+      setPhase("analyzing");
       const res = await fetch("/api/agents/arcscout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: addr }),
+        body: JSON.stringify({ address: addr, paymentTx: paymentHash, payer: wallet }),
       });
       const json = await res.json();
       if (!res.ok) {
-        setError(json.error ?? "Something went wrong. Please try again.");
+        const message = String(json.error ?? "Something went wrong. Please try again.");
+        const keepPayment =
+          Boolean(paymentHash) &&
+          (res.status !== 402 || /not confirmed|Could not verify/.test(message));
+        if (!keepPayment) setPaidTx(null);
+        setError(
+          keepPayment
+            ? `${message} Your 1 USDC transfer can be reused — press Retry report.`
+            : message
+        );
       } else {
+        setPaidTx(null);
         setResult(json);
       }
-    } catch {
-      setError("Network error. Please try again.");
+    } catch (e) {
+      const message =
+        e instanceof Error && /^(You need|Could not reach|The USDC)/.test(e.message)
+          ? e.message
+          : formatWalletError(e);
+      setError(
+        paymentHash
+          ? `${message} If that transfer confirmed, press Retry report instead of paying again.`
+          : message
+      );
     } finally {
+      busy.current = false;
       setLoading(false);
+      setPhase("idle");
     }
   }
 
@@ -141,7 +261,7 @@ export default function ArcScoutPage() {
             />
             <button
               onClick={analyze}
-              disabled={loading || !address.trim()}
+              disabled={loading || (isConnected && !address.trim())}
               className="flex items-center gap-2 rounded-lg bg-[#3d2c1e] px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
             >
               {loading ? (
@@ -150,18 +270,34 @@ export default function ArcScoutPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                   </svg>
-                  Analyzing…
+                  {phase === "checking"
+                    ? "Checking…"
+                    : phase === "wallet"
+                      ? "Confirm in wallet…"
+                      : phase === "confirming"
+                        ? "Confirming payment…"
+                        : "Analyzing…"}
+                </>
+              ) : !isConnected ? (
+                <>
+                  <Search className="h-4 w-4" />
+                  Connect wallet
+                </>
+              ) : reusePayment ? (
+                <>
+                  <Search className="h-4 w-4" />
+                  Retry report
                 </>
               ) : (
                 <>
                   <Search className="h-4 w-4" />
-                  Analyze
+                  Pay 1 USDC
                 </>
               )}
             </button>
           </div>
           <p className="mt-2 text-xs text-[#8a7d6b]">
-            Scans Ethereum, Base, Arbitrum, Polygon, and Optimism in parallel. Results in ~8 seconds.
+            Costs 1 USDC on Arc Mainnet. Your wallet asks you to confirm a transfer to {x402PayTo} before any report is shown.
           </p>
         </div>
 
@@ -172,8 +308,18 @@ export default function ArcScoutPage() {
           </div>
         )}
 
+        {loading && phase !== "analyzing" && (
+          <p className="mt-4 text-sm text-[#5c4a38]">
+            {phase === "wallet"
+              ? "Approve the 1 USDC transfer in your wallet. The report starts after it confirms."
+              : phase === "confirming"
+                ? "Waiting for the USDC transfer to confirm on Arc…"
+                : "Checking that ArcScout can run this report…"}
+          </p>
+        )}
+
         {/* Loading skeleton */}
-        {loading && (
+        {loading && phase === "analyzing" && (
           <div className="mt-6 space-y-3">
             <div className="h-4 w-3/4 animate-pulse rounded bg-[#e8e0d4]" />
             <div className="h-4 w-full animate-pulse rounded bg-[#e8e0d4]" />

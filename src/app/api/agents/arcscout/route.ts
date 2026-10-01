@@ -1,5 +1,10 @@
 import https from "node:https";
 import { NextRequest, NextResponse } from "next/server";
+import {
+  releaseX402Payment,
+  verifyX402Payment,
+  x402Requirements,
+} from "@/lib/verifyX402Payment";
 
 export const runtime = "nodejs";
 export const preferredRegion = "bom1";
@@ -631,9 +636,14 @@ async function completeReport(
 }
 
 export async function POST(req: NextRequest) {
+  let reservedPayment: string | null = null;
   try {
-    const body = await req.json().catch(() => ({}));
-    const address: string = (body.address ?? "").trim().toLowerCase();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+    }
+    const record = body as Record<string, unknown>;
+    const address = String(record.address ?? "").trim().toLowerCase();
 
     if (!address || !/^0x[0-9a-f]{40}$/i.test(address)) {
       return NextResponse.json(
@@ -648,6 +658,29 @@ export async function POST(req: NextRequest) {
         { status: 503 }
       );
     }
+
+    const paymentTx = String(record.paymentTx ?? "").trim();
+    const payer = String(record.payer ?? "").trim();
+    let paymentError: string | null;
+    try {
+      paymentError = await verifyX402Payment(paymentTx, payer);
+    } catch {
+      return NextResponse.json(
+        {
+          error:
+            "Could not verify the USDC payment on Arc. Confirm the transfer in your wallet, then try again.",
+          ...x402Requirements(),
+        },
+        { status: 402 }
+      );
+    }
+    if (paymentError) {
+      return NextResponse.json(
+        { error: paymentError, ...x402Requirements() },
+        { status: 402 }
+      );
+    }
+    reservedPayment = paymentTx;
 
     const results = await Promise.all(
       CHAINS.map((c) => fetchChainBalances(address, c.id, c.label))
@@ -673,6 +706,7 @@ export async function POST(req: NextRequest) {
       generatedAt: new Date().toISOString(),
     });
   } catch (e) {
+    if (reservedPayment) releaseX402Payment(reservedPayment);
     const msg = e instanceof Error ? e.message : "Internal error. Please try again.";
     console.error("ArcScout error:", msg);
     const safe =
