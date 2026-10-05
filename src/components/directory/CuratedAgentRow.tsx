@@ -31,11 +31,16 @@ export function CuratedAgentRow({ agent, index = 0 }: CuratedAgentRowProps) {
         {/* Avatar */}
         <div
           className={cn(
-            "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-[15px] font-semibold tracking-tight text-foreground/70",
+            "flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl text-[15px] font-semibold tracking-tight text-foreground/70",
             agent.accentClass
           )}
         >
-          {agent.initials}
+          {agent.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={agent.image} alt="" className="h-full w-full object-cover" />
+          ) : (
+            agent.initials
+          )}
         </div>
 
         {/* Body */}

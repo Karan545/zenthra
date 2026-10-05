@@ -12,7 +12,9 @@ import { Button } from "@/components/ui/Button";
 import { ConnectWallet } from "@/components/web3/ConnectWallet";
 import { AgentGridSkeleton } from "@/components/directory/AgentCardSkeleton";
 import { DelistConfirmDialog } from "@/components/agents/DelistConfirmDialog";
+import { ArcScoutOwnerCard } from "@/components/agents/ArcScoutOwnerCard";
 import { useMyAgents, type MyAgentRow } from "@/hooks/useMyAgents";
+import { x402PayTo } from "@/config/x402";
 import { ListOnZenthraCard } from "@/components/register/ListOnZenthra";
 import { shortenAddress } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -20,6 +22,7 @@ import type { Agent } from "@/types/agent";
 
 export function MyAgentsContent() {
   const {
+    address,
     isConnected,
     agents,
     listedCount,
@@ -54,9 +57,12 @@ export function MyAgentsContent() {
     );
   }
 
+  const ownsArcScout = address?.toLowerCase() === x402PayTo.toLowerCase();
+
   if (isLoading) {
     return (
       <div className="space-y-6">
+        {ownsArcScout ? <ArcScoutOwnerCard /> : null}
         <p className="text-sm text-muted">Loading your agents…</p>
         <AgentGridSkeleton count={3} />
       </div>
@@ -65,9 +71,13 @@ export function MyAgentsContent() {
 
   return (
     <div className="space-y-8">
+      {ownsArcScout ? <ArcScoutOwnerCard /> : null}
       {/* Summary */}
       <div className="grid gap-4 sm:grid-cols-3 sm:gap-5">
-        <SummaryTile label="Your agents" value={String(agents.length)} />
+        <SummaryTile
+          label="Your agents"
+          value={String(agents.length + (ownsArcScout ? 1 : 0))}
+        />
         <SummaryTile
           label="Listed on Zenthra"
           value={String(listedCount)}
@@ -88,6 +98,8 @@ export function MyAgentsContent() {
             </>
           ) : listedCount > 0 ? (
             <>All of your agents with local data are managed below.</>
+          ) : ownsArcScout ? (
+            <>ArcScout is managed above. Register another agent to list it here too.</>
           ) : (
             <>No agents for this wallet yet.</>
           )}
@@ -109,10 +121,13 @@ export function MyAgentsContent() {
 
       {agents.length === 0 ? (
         <div className="card-surface rounded-2xl px-6 py-14 text-center">
-          <h2 className="font-display text-2xl text-headline">No agents yet</h2>
+          <h2 className="font-display text-2xl text-headline">
+            {ownsArcScout ? "ArcScout is ready above" : "No agents yet"}
+          </h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-            Register an ERC-8004 agent, then list it on Zenthra with a 1 USDC
-            stake.
+            {ownsArcScout
+              ? "Change its price, picture, or description on the ArcScout card. Agents you register separately show in this list."
+              : "Register an ERC-8004 agent, then list it on Zenthra with a 1 USDC stake."}
           </p>
           <div className="mt-6 flex justify-center">
             <Button href="/register" variant="primary" size="md">

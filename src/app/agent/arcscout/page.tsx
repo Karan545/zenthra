@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { ArrowLeft, Search, Zap, Shield, Globe, ChevronRight, Copy, Check } from "lucide-react";
@@ -8,7 +8,14 @@ import ReactMarkdown from "react-markdown";
 import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from "wagmi";
 import { erc20Abi } from "@/config/abis";
 import { arcMainnet } from "@/config/chains";
-import { x402Amount, x402Asset, x402PayTo } from "@/config/x402";
+import { x402Asset, x402PayTo } from "@/config/x402";
+import {
+  arcScoutFeeUnits,
+  DEFAULT_ARCSCOUT_PROFILE,
+  formatUsdcAmount,
+  sanitizeArcScoutProfile,
+  type ArcScoutProfile,
+} from "@/lib/arcscoutProfile";
 import { formatWalletError } from "@/lib/walletErrors";
 
 interface ArcScoutResult {
@@ -36,7 +43,22 @@ export default function ArcScoutPage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [paidTx, setPaidTx] = useState<{ hash: `0x${string}`; payer: `0x${string}` } | null>(null);
+  const [profile, setProfile] = useState<ArcScoutProfile>(DEFAULT_ARCSCOUT_PROFILE);
   const busy = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/agents/arcscout/profile")
+      .then((res) => res.json())
+      .then((json) => {
+        const next = sanitizeArcScoutProfile(json?.profile);
+        if (!cancelled && next) setProfile(next);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const { address: wallet, isConnected, chainId } = useAccount();
   const { openConnectModal } = useConnectModal();
@@ -95,6 +117,19 @@ export default function ArcScoutPage() {
           throw new Error("Could not reach Arc.");
         }
 
+        let feeProfile = profile;
+        try {
+          const live = await fetch("/api/agents/arcscout/profile").then((res) => res.json());
+          const next = sanitizeArcScoutProfile(live?.profile);
+          if (next) {
+            feeProfile = next;
+            setProfile(next);
+          }
+        } catch {
+          // The price already on screen is used when the profile request fails.
+        }
+        const fee = arcScoutFeeUnits(feeProfile);
+
         let balance: bigint | null = null;
         try {
           balance = await publicClient.readContract({
@@ -106,8 +141,10 @@ export default function ArcScoutPage() {
         } catch {
           balance = null;
         }
-        if (balance !== null && balance < x402Amount) {
-          setError("You need at least 1 USDC on Arc Mainnet to pay for this report.");
+        if (balance !== null && balance < fee) {
+          setError(
+            `You need at least ${formatUsdcAmount(feeProfile.priceUsdc)} USDC on Arc Mainnet to pay for this report.`
+          );
           return;
         }
 
@@ -116,7 +153,7 @@ export default function ArcScoutPage() {
           address: x402Asset,
           abi: erc20Abi,
           functionName: "transfer",
-          args: [x402PayTo, x402Amount],
+          args: [x402PayTo, fee],
           chainId: arcMainnet.id,
         });
         setPaidTx({ hash, payer: wallet });
@@ -198,12 +235,17 @@ export default function ArcScoutPage() {
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-16">
         {/* Agent identity */}
         <div className="mb-10 flex items-start gap-5">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#d4c4b0] text-xl font-bold text-[#3d2c1e]">
-            AS
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#d4c4b0] text-xl font-bold text-[#3d2c1e]">
+            {profile.image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profile.image} alt="" className="h-full w-full object-cover" />
+            ) : (
+              profile.name.slice(0, 2).toUpperCase()
+            )}
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold text-[#1a1410]">ArcScout</h1>
+              <h1 className="text-2xl font-bold text-[#1a1410]">{profile.name}</h1>
               <span className="rounded-full bg-[#2d6a4f] px-2.5 py-0.5 text-xs font-semibold text-white">
                 Verified
               </span>
@@ -211,9 +253,12 @@ export default function ArcScoutPage() {
                 Launch Partner
               </span>
             </div>
-            <p className="mt-1 text-[#5c4a38]">
-              Multi-chain wallet research. Paste any address and get a full portfolio breakdown across Ethereum, Base, Arbitrum, Polygon, and Optimism — with AI interpretation.
-            </p>
+            <p className="mt-1 text-[#5c4a38]">{profile.description}</p>
+            {wallet?.toLowerCase() === x402PayTo.toLowerCase() ? (
+              <Link href="/my-agents" className="mt-2 inline-block text-sm font-semibold text-[#3d2c1e] hover:underline">
+                Edit price, picture, and description
+              </Link>
+            ) : null}
             <div className="mt-3 flex flex-wrap gap-1.5">
               {["Research", "Wallets", "Multi-chain", "Analytics", "DeFi"].map((cap) => (
                 <span
@@ -232,7 +277,7 @@ export default function ArcScoutPage() {
           {[
             { icon: Globe, label: "Chains covered", value: "5" },
             { icon: Zap, label: "Avg response", value: "~8s" },
-            { icon: Shield, label: "Price per report", value: "1 USDC" },
+            { icon: Shield, label: "Price per report", value: `${formatUsdcAmount(profile.priceUsdc)} USDC` },
           ].map(({ icon: Icon, label, value }) => (
             <div
               key={label}
@@ -291,13 +336,13 @@ export default function ArcScoutPage() {
               ) : (
                 <>
                   <Search className="h-4 w-4" />
-                  Pay 1 USDC
+                  Pay {formatUsdcAmount(profile.priceUsdc)} USDC
                 </>
               )}
             </button>
           </div>
           <p className="mt-2 text-xs text-[#8a7d6b]">
-            Costs 1 USDC on Arc Mainnet. Your wallet asks you to confirm a transfer to {x402PayTo} before any report is shown.
+            Costs {formatUsdcAmount(profile.priceUsdc)} USDC on Arc Mainnet. Your wallet asks you to confirm a transfer to {x402PayTo} before any report is shown.
           </p>
         </div>
 
@@ -311,7 +356,7 @@ export default function ArcScoutPage() {
         {loading && phase !== "analyzing" && (
           <p className="mt-4 text-sm text-[#5c4a38]">
             {phase === "wallet"
-              ? "Approve the 1 USDC transfer in your wallet. The report starts after it confirms."
+              ? `Approve the ${formatUsdcAmount(profile.priceUsdc)} USDC transfer in your wallet. The report starts after it confirms.`
               : phase === "confirming"
                 ? "Waiting for the USDC transfer to confirm on Arc…"
                 : "Checking that ArcScout can run this report…"}

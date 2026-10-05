@@ -22,6 +22,8 @@ export type CuratedAgent = {
   tokenId: number;
   /** Avatar initials for the placeholder avatar */
   initials: string;
+  /** Optional picture set by the owner. */
+  image?: string;
   /** Accent colour class (Tailwind bg) */
   accentClass: string;
 };

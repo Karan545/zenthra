@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, RefreshCw } from "lucide-react";
@@ -14,6 +14,7 @@ import { DiscoverEmptyState } from "@/components/discover/DiscoverEmptyState";
 import { DiscoverSearch } from "@/components/discover/DiscoverSearch";
 import { CATEGORIES } from "@/data/categories";
 import { CURATED_AGENTS } from "@/data/curatedAgents";
+import { sanitizeArcScoutProfile, type ArcScoutProfile } from "@/lib/arcscoutProfile";
 
 /**
  * Main discovery experience: hero, search, categories, recent listed agents.
@@ -21,6 +22,37 @@ import { CURATED_AGENTS } from "@/data/curatedAgents";
  */
 export function DiscoverHome() {
   const [search, setSearch] = useState("");
+  const [arcProfile, setArcProfile] = useState<ArcScoutProfile | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/agents/arcscout/profile")
+      .then((res) => res.json())
+      .then((json) => {
+        const profile = sanitizeArcScoutProfile(json?.profile);
+        if (!cancelled && profile) setArcProfile(profile);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const curated = useMemo(
+    () =>
+      CURATED_AGENTS.map((agent) =>
+        agent.id === "arcscout" && arcProfile
+          ? {
+              ...agent,
+              name: arcProfile.name,
+              description: arcProfile.description,
+              pricePerTask: arcProfile.priceUsdc,
+              image: arcProfile.image || undefined,
+            }
+          : agent
+      ),
+    [arcProfile]
+  );
   const {
     agents,
     allListed,
@@ -184,7 +216,7 @@ export function DiscoverHome() {
                     </p>
                   </div>
                   <div className="space-y-3">
-                    {CURATED_AGENTS.map((agent) => (
+                    {curated.map((agent) => (
                       <CuratedAgentRow key={agent.id} agent={agent} />
                     ))}
                   </div>

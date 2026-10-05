@@ -1,5 +1,7 @@
 import https from "node:https";
 import { NextRequest, NextResponse } from "next/server";
+import { arcScoutFeeUnits } from "@/lib/arcscoutProfile";
+import { loadArcScoutProfile } from "@/lib/arcscoutProfileChain";
 import {
   releaseX402Payment,
   verifyX402Payment,
@@ -661,22 +663,24 @@ export async function POST(req: NextRequest) {
 
     const paymentTx = String(record.paymentTx ?? "").trim();
     const payer = String(record.payer ?? "").trim();
+    const { profile } = await loadArcScoutProfile();
+    const fee = arcScoutFeeUnits(profile);
     let paymentError: string | null;
     try {
-      paymentError = await verifyX402Payment(paymentTx, payer);
+      paymentError = await verifyX402Payment(paymentTx, payer, fee);
     } catch {
       return NextResponse.json(
         {
           error:
             "Could not verify the USDC payment on Arc. Confirm the transfer in your wallet, then try again.",
-          ...x402Requirements(),
+          ...x402Requirements(fee),
         },
         { status: 402 }
       );
     }
     if (paymentError) {
       return NextResponse.json(
-        { error: paymentError, ...x402Requirements() },
+        { error: paymentError, ...x402Requirements(fee) },
         { status: 402 }
       );
     }
