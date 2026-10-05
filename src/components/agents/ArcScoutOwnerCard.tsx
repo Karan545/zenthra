@@ -7,6 +7,7 @@ import { identityRegistryAddress } from "@/config/contracts";
 import type { Address, Hash } from "viem";
 import { arcMainnet } from "@/config/chains";
 import {
+  arcScoutDraftError,
   buildArcScoutUri,
   DEFAULT_ARCSCOUT_PROFILE,
   formatUsdcAmount,
@@ -60,6 +61,7 @@ export function ArcScoutOwnerCard() {
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient({ chainId: arcMainnet.id });
   const [draft, setDraft] = useState<ArcScoutProfile>(DEFAULT_ARCSCOUT_PROFILE);
+  const [priceText, setPriceText] = useState(String(DEFAULT_ARCSCOUT_PROFILE.priceUsdc));
   const [tokenId, setTokenId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +74,10 @@ export function ArcScoutOwnerCard() {
       .then((json) => {
         if (cancelled) return;
         const profile = sanitizeArcScoutProfile(json?.profile);
-        if (profile) setDraft(profile);
+        if (profile) {
+          setDraft(profile);
+          setPriceText(String(profile.priceUsdc));
+        }
         setTokenId(typeof json?.tokenId === "string" ? json.tokenId : null);
       })
       .catch(() => undefined);
@@ -83,11 +88,11 @@ export function ArcScoutOwnerCard() {
 
   async function save() {
     setSaved(false);
-    const profile = sanitizeArcScoutProfile(draft);
-    if (!profile) {
-      setError(
-        "Use a name, a description, a price from 0.01 to 100 USDC, and an https picture or a small image."
-      );
+    const candidate = { ...draft, priceUsdc: Number(priceText) };
+    const problem = arcScoutDraftError(candidate);
+    const profile = sanitizeArcScoutProfile(candidate);
+    if (problem || !profile) {
+      setError(problem ?? "Check the name, description, picture, and price.");
       return;
     }
     if (!publicClient) {
@@ -148,7 +153,10 @@ export function ArcScoutOwnerCard() {
         if (typeof fresh?.tokenId === "string") confirmed = fresh;
       }
       const next = sanitizeArcScoutProfile(confirmed?.profile);
-      if (next) setDraft(next);
+      if (next) {
+        setDraft(next);
+        setPriceText(String(next.priceUsdc));
+      }
       const nextId =
         typeof confirmed?.tokenId === "string" ? confirmed.tokenId : mintedId ?? tokenId;
       if (nextId) setTokenId(nextId);
@@ -241,8 +249,11 @@ export function ArcScoutOwnerCard() {
             min={0.01}
             max={100}
             step={0.01}
-            value={draft.priceUsdc}
-            onChange={(e) => setDraft({ ...draft, priceUsdc: Number(e.target.value) })}
+            value={priceText}
+            onChange={(e) => {
+              setPriceText(e.target.value);
+              setDraft({ ...draft, priceUsdc: Number(e.target.value) });
+            }}
             className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-foreground outline-none focus:border-headline"
           />
         </label>
@@ -257,7 +268,7 @@ export function ArcScoutOwnerCard() {
           />
         </label>
         <label className="block text-sm sm:col-span-2">
-          <span className="text-muted">Picture URL</span>
+          <span className="text-muted">Picture URL (https://…)</span>
           <input
             value={draft.image.startsWith("data:") ? "" : draft.image}
             placeholder="https://…"

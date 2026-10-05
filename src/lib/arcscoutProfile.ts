@@ -38,14 +38,28 @@ export function arcScoutFeeUnits(profile: ArcScoutProfile): bigint {
 }
 
 export function sanitizeArcScoutProfile(input: unknown): ArcScoutProfile | null {
-  if (!input || typeof input !== "object") return null;
+  if (arcScoutDraftError(input)) return null;
   const raw = input as Record<string, unknown>;
-  const name = cleanLine(raw.name, 40);
-  const description = cleanBlock(raw.description, 600);
-  const image = cleanImage(raw.image);
-  const priceUsdc = cleanPrice(raw.priceUsdc);
-  if (!name || !description || image === null || priceUsdc === null) return null;
-  return { name, description, image, priceUsdc };
+  return {
+    name: cleanLine(raw.name, 40) as string,
+    description: cleanBlock(raw.description, 600) as string,
+    image: cleanImage(raw.image) as string,
+    priceUsdc: cleanPrice(raw.priceUsdc) as number,
+  };
+}
+
+/** Why a form draft cannot be saved. Empty means the draft is valid. */
+export function arcScoutDraftError(input: unknown): string | null {
+  if (!input || typeof input !== "object") {
+    return "Fill in the name, description, and price.";
+  }
+  const raw = input as Record<string, unknown>;
+  if (!cleanLine(raw.name, 40)) return "Use a name, up to 40 characters.";
+  if (!cleanBlock(raw.description, 600)) return "Use a description, up to 600 characters.";
+  const imageError = imageProblem(raw.image);
+  if (imageError) return imageError;
+  if (cleanPrice(raw.priceUsdc) === null) return "Set a price from 0.01 to 100 USDC.";
+  return null;
 }
 
 export function buildArcScoutUri(profile: ArcScoutProfile): string {
@@ -85,16 +99,34 @@ function cleanBlock(value: unknown, max: number): string | null {
 
 function cleanImage(value: unknown): string | null {
   if (typeof value !== "string") return null;
-  const image = value.trim();
+  const image = value.trim().replace(/^['"]+|['"]+$/g, "");
   if (!image) return "";
-  if (/^https:\/\/\S{1,400}$/i.test(image)) return image;
+  if (/^https:\/\/\S{1,2000}$/i.test(image)) return image;
   if (
-    /^data:image\/(png|jpeg|jpg|webp|gif);base64,[a-z0-9+/=\s]+$/i.test(image) &&
+    /^data:image\/[a-z0-9.+-]+(?:;charset=[a-z0-9._-]+)?;base64,[a-z0-9+/=\s]+$/i.test(image) &&
     image.length <= 18_000
   ) {
     return image.replace(/\s+/g, "");
   }
   return null;
+}
+
+function imageProblem(value: unknown): string | null {
+  if (cleanImage(value) !== null) return null;
+  const image = typeof value === "string" ? value.trim().replace(/^['"]+|['"]+$/g, "") : "";
+  if (/^https:\/\//i.test(image) && image.length > 2000) {
+    return "That picture link is too long. Use a shorter https link.";
+  }
+  if (/\s/.test(image)) {
+    return "The picture link contains a space. Paste only the https:// address.";
+  }
+  if (/^http:\/\//i.test(image)) {
+    return "Picture link must start with https://.";
+  }
+  if (image.startsWith("data:image/") && image.length > 18_000) {
+    return "That picture is too large to store on Arc. Use an https link, or a file under 12 KB.";
+  }
+  return "Picture link must be an https:// address, or upload a PNG, JPEG, WebP, or GIF under 12 KB.";
 }
 
 function cleanPrice(value: unknown): number | null {
