@@ -2,12 +2,12 @@ import type { Address } from "viem";
 import { ONE_USDC, usdcAddress } from "@/config/contracts";
 
 /**
- * Zenthra deployer wallet. Receives ArcScout fees.
+ * Wallet that owns ArcScout and receives its fees.
  * The address in AGENTS.md is the Circle SCP deployer, so it is not used here.
  * Override with NEXT_PUBLIC_X402_PAY_TO.
  */
 const DEFAULT_PAY_TO =
-  "0x4D608Eba43C35f0126876972Da05199c3Cf8e8F0" as Address;
+  "0x36C86790f33ceaB88a1349BA6aC45538A3308A9F" as Address;
 
 function payToAddress(): Address {
   const configured = (process.env.NEXT_PUBLIC_X402_PAY_TO ?? "").trim();
