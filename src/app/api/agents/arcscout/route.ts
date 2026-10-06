@@ -694,6 +694,51 @@ async function completeReport(
   return { error: lastError };
 }
 
+export async function GET() {
+  const tiny = JSON.stringify({
+    model: "gpt-6-astra",
+    messages: [{ role: "user", content: "Reply with the word OK." }],
+    max_tokens: 16,
+    temperature: 0,
+    stream: false,
+  });
+  const describe = (upstream: UpstreamResult) => {
+    const start = upstream.text.replace(/^\uFEFF/, "").trimStart();
+    const kind = isHtml(upstream.text) ? "html" : start.startsWith("{") || start.startsWith("[") ? "json" : "other";
+    return {
+      status: upstream.status,
+      kind,
+      bytes: upstream.text.length,
+      report: kind === "json" ? Boolean(extractReport(upstream.text)) : false,
+    };
+  };
+  try {
+    const reach = describe(
+      await httpsCallPreferV4(
+        "/v1/chat/completions",
+        requestHeaders("sk-probe-invalid", "chat"),
+        tiny,
+        12_000
+      )
+    );
+    if (reach.kind !== "json" || !AGENTROUTER_API_KEY) {
+      return NextResponse.json({ reach });
+    }
+    const live = describe(
+      await httpsCallPreferV4(
+        "/v1/chat/completions",
+        requestHeaders(AGENTROUTER_API_KEY, "chat"),
+        tiny,
+        20_000
+      )
+    );
+    return NextResponse.json({ reach, live });
+  } catch (error) {
+    const message = error instanceof Error ? error.message.slice(0, 100) : "failed";
+    return NextResponse.json({ reach: { status: 0, kind: "error", bytes: 0, report: false, message } });
+  }
+}
+
 export async function POST(req: NextRequest) {
   let reservedPayment: string | null = null;
   try {
