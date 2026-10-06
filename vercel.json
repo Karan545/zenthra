@@ -5,9 +5,17 @@
       "regions": ["iad1"],
       "maxDuration": 60
     },
-    "src/app/api/agents/arcscout/reach/route.ts": {
-      "regions": ["iad1"],
-      "maxDuration": 60
+    "src/app/api/agents/arcscout/r-hkg/route.ts": {
+      "regions": ["hkg1"],
+      "maxDuration": 30
+    },
+    "src/app/api/agents/arcscout/r-sin/route.ts": {
+      "regions": ["sin1"],
+      "maxDuration": 30
+    },
+    "src/app/api/agents/arcscout/r-fra/route.ts": {
+      "regions": ["fra1"],
+      "maxDuration": 30
     }
   }
 }

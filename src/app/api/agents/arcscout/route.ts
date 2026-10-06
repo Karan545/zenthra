@@ -9,17 +9,16 @@ import {
 } from "@/lib/verifyX402Payment";
 
 export const runtime = "nodejs";
-// The Mumbai region receives AgentRouter's website instead of the API.
-// This route runs in Washington so the completion call leaves that region.
+// Mumbai receives the gateway website instead of the API, so this route
+// runs in Washington unless a closer region is shown to receive JSON.
 export const preferredRegion = "iad1";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
 const COVALENT_API_KEY = process.env.COVALENT_API_KEY ?? "";
 const AGENTROUTER_API_KEY = process.env.AGENTROUTER_API_KEY ?? "";
-// agentrouter.org answers this server with an Aliyun WAF page. The alternate
-// official base returns the API. Desktop clients can still use either host.
-const HOST = "co.agentrouter.org";
+// The alternate official host rejects this project's key, so calls stay here.
+const HOST = "agentrouter.org";
 
 // Live catalog: gpt-6-astra (OpenAI wire), then the two Claude models.
 // gpt-5.6-sol and glm-5.3 are not in the current pricing list.
