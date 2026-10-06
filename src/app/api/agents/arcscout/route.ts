@@ -17,17 +17,19 @@ export const dynamic = "force-dynamic";
 
 const COVALENT_API_KEY = process.env.COVALENT_API_KEY ?? "";
 const AGENTROUTER_API_KEY = process.env.AGENTROUTER_API_KEY ?? "";
-const HOST = "agentrouter.org";
+// agentrouter.org answers this server with an Aliyun WAF page. The alternate
+// official base returns the API. Desktop clients can still use either host.
+const HOST = "co.agentrouter.org";
 
-// deepseek-v4-flash is demoted on AgentRouter. gpt-5.6-sol is the current
-// OpenAI model on the OpenAI-compatible wire. Claude stays on the messages wire.
-const PRIMARY_MODELS = ["gpt-5.6-sol", "claude-opus-5", "gpt-6-astra", "claude-opus-4-8"];
+// Live catalog: gpt-6-astra (OpenAI wire), then the two Claude models.
+// gpt-5.6-sol and glm-5.3 are not in the current pricing list.
+// deepseek-v4-flash stays a last resort and is never the only model.
+const PRIMARY_MODELS = ["gpt-6-astra", "claude-opus-5", "claude-opus-4-8"];
 const LAST_RESORT_MODEL = "deepseek-v4-flash";
 const ANTHROPIC_MODELS = new Set([
   "claude-opus-5",
   "claude-opus-4-8",
   "deepseek-v4-flash",
-  "glm-5.3",
 ]);
 
 const SYSTEM_PROMPT =
@@ -320,11 +322,12 @@ function upstreamError(status: number, text: string): string {
     const parsed = JSON.parse(text) as {
       error?: { message?: string } | string;
       message?: string;
+      msg?: string;
     };
     const message =
       typeof parsed.error === "string"
         ? parsed.error
-        : parsed.error?.message || parsed.message;
+        : parsed.error?.message || parsed.message || parsed.msg;
     if (message) return message.slice(0, 300);
   } catch {
     if (text && text.length < 300 && !text.includes("<")) return text;
@@ -692,58 +695,6 @@ async function completeReport(
   }
 
   return { error: lastError };
-}
-
-async function probeHost(hostname: string) {
-  const tiny = JSON.stringify({
-    model: "gpt-6-astra",
-    messages: [{ role: "user", content: "Reply with the word OK." }],
-    max_tokens: 8,
-    stream: false,
-  });
-  const headers = requestHeaders("sk-probe-invalid", "chat");
-  const upstream = await new Promise<UpstreamResult>((resolve, reject) => {
-    const req = https.request(
-      {
-        hostname,
-        path: "/v1/chat/completions",
-        method: "POST",
-        headers: { ...headers, host: hostname, "Content-Length": Buffer.byteLength(tiny) },
-        family: 4,
-        servername: hostname,
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        res.on("data", (chunk: Buffer) => chunks.push(chunk));
-        res.on("end", () =>
-          resolve({ status: res.statusCode ?? 0, text: Buffer.concat(chunks).toString("utf8") })
-        );
-      }
-    );
-    req.setTimeout(12_000, () => req.destroy(new Error("timed out")));
-    req.on("error", reject);
-    req.write(tiny);
-    req.end();
-  });
-  const start = upstream.text.replace(/^\uFEFF/, "").trimStart();
-  const kind = start.startsWith("<") ? "html" : start.startsWith("{") || start.startsWith("[") ? "json" : "other";
-  return {
-    host: hostname,
-    status: upstream.status,
-    kind,
-    bytes: upstream.text.length,
-    prefix: start.slice(0, 90).replace(/\s+/g, " "),
-  };
-}
-
-export async function GET() {
-  try {
-    const hosts = await Promise.all([probeHost("agentrouter.org"), probeHost("co.agentrouter.org")]);
-    return NextResponse.json({ hosts });
-  } catch (error) {
-    const message = error instanceof Error ? error.message.slice(0, 100) : "failed";
-    return NextResponse.json({ message });
-  }
 }
 
 export async function POST(req: NextRequest) {
