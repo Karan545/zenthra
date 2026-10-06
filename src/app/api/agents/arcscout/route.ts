@@ -613,8 +613,7 @@ async function once(
           ? await fetchCall(path, headers, body, slice)
           : await httpsCallPreferV4(path, headers, body, slice);
       const attempt = classify(model, wire, via, upstream);
-      if (attempt.kind !== "html") return attempt;
-      last = attempt;
+      return attempt;
     } catch (error) {
       if (isTimeout(error)) {
         console.error("ArcScout upstream timeout", model, wire, via);
@@ -668,7 +667,6 @@ async function completeReport(
   const { primary, lastResort } = modelsToTry();
   let lastError = "AI gateway returned its website instead of a report (HTTP 200).";
   let blockedByWebsite = true;
-  let websiteReplies = 0;
 
   for (let index = 0; index < primary.length; index++) {
     const model = primary[index];
@@ -678,10 +676,7 @@ async function completeReport(
     if (attempt.kind === "report") return { report: attempt.report, model: attempt.model };
     if (attempt.kind === "auth") return { error: attempt.error };
     if (attempt.kind === "html") {
-      websiteReplies += 1;
-      lastError = attempt.error;
-      if (websiteReplies >= 2) return { error: attempt.error };
-      continue;
+      return { error: attempt.error };
     }
     lastError = attempt.error;
     blockedByWebsite = false;
