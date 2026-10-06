@@ -234,8 +234,6 @@ function buildDataReport(address: string, results: ChainResult[]): string {
     "",
     "## Summary",
     summary,
-    "",
-    "_Figures are calculated from the balance scan._",
   ].join("\n");
 }
 
@@ -304,7 +302,7 @@ function modelsToTry(): { primary: string[]; lastResort: string } {
 }
 
 function isHtml(text: string): boolean {
-  return text.trimStart().startsWith("<");
+  return text.replace(/^\uFEFF/, "").trimStart().startsWith("<");
 }
 
 function isTimeout(error: unknown): boolean {
@@ -358,11 +356,15 @@ function stripThink(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 }
 
-function extractReport(text: string): string {
-  const json = JSON.parse(text) as {
-    choices?: { message?: { content?: unknown; reasoning_content?: unknown } }[];
-    content?: { type?: string; text?: string }[];
-  };
+function reportFromJson(json: {
+  choices?: {
+    message?: { content?: unknown; reasoning_content?: unknown };
+    delta?: { content?: unknown };
+  }[];
+  content?: { type?: string; text?: string }[];
+  output_text?: unknown;
+  output?: { type?: string; content?: { text?: unknown }[] }[];
+}): string {
   const message = json.choices?.[0]?.message;
   if (message) {
     const content = stripThink(textContent(message.content));
@@ -370,6 +372,8 @@ function extractReport(text: string): string {
     const reasoning = stripThink(textContent(message.reasoning_content));
     if (reasoning) return reasoning;
   }
+  const delta = stripThink(textContent(json.choices?.[0]?.delta?.content));
+  if (delta) return delta;
   if (Array.isArray(json.content)) {
     const parts = json.content
       .filter((block) => block?.type !== "thinking" && block?.type !== "redacted_thinking")
@@ -377,7 +381,46 @@ function extractReport(text: string): string {
       .filter(Boolean);
     if (parts.length) return stripThink(parts.join("\n\n"));
   }
+  if (typeof json.output_text === "string" && json.output_text.trim()) {
+    return stripThink(json.output_text);
+  }
+  if (Array.isArray(json.output)) {
+    const parts = json.output.flatMap((item) =>
+      Array.isArray(item?.content)
+        ? item.content.map((part) => (typeof part?.text === "string" ? part.text.trim() : ""))
+        : []
+    ).filter(Boolean);
+    if (parts.length) return stripThink(parts.join("\n\n"));
+  }
   return "";
+}
+
+function extractReport(text: string): string {
+  const trimmed = text.replace(/^\uFEFF/, "").trim();
+  if (trimmed.startsWith("data:")) {
+    let streamed = "";
+    let complete = "";
+    for (const line of trimmed.split("\n")) {
+      const row = line.trim();
+      if (!row.startsWith("data:")) continue;
+      const payload = row.slice(5).trim();
+      if (!payload || payload === "[DONE]") continue;
+      try {
+        const piece = reportFromJson(JSON.parse(payload));
+        if (!piece) continue;
+        if (payload.includes('"delta"')) streamed += piece;
+        else complete = piece;
+      } catch {
+        // Ignore a malformed stream event.
+      }
+    }
+    return stripThink(complete || streamed);
+  }
+  try {
+    return reportFromJson(JSON.parse(trimmed));
+  } catch {
+    return "";
+  }
 }
 
 function chatBody(model: string, prompt: string): string {
@@ -389,6 +432,7 @@ function chatBody(model: string, prompt: string): string {
     ],
     max_tokens: 1200,
     temperature: 0.3,
+    stream: false,
   });
 }
 
@@ -397,6 +441,7 @@ function messagesBody(model: string, prompt: string): string {
     model,
     max_tokens: 1200,
     temperature: 0.3,
+    stream: false,
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: prompt }],
   });
@@ -433,7 +478,7 @@ function httpsCall(
       else resolve(result as UpstreamResult);
     };
     const timer = setTimeout(() => {
-      req.destroy(new Error("AgentRouter request timed out"));
+      req.destroy(new Error("Report request timed out"));
     }, timeoutMs);
 
     const req = https.request(
@@ -443,6 +488,7 @@ function httpsCall(
         method: "POST",
         headers: {
           ...headers,
+          host: HOST,
           "Content-Length": Buffer.byteLength(body),
         },
         family,
@@ -454,7 +500,7 @@ function httpsCall(
         res.on("data", (chunk: Buffer) => {
           received += chunk.length;
           if (received > 4_000_000) {
-            finish(new Error("AgentRouter response too large"));
+            finish(new Error("Report response too large"));
             req.destroy();
             return;
           }
@@ -510,7 +556,7 @@ async function fetchCall(
   });
   const text = await res.text();
   if (text.length > 4_000_000) {
-    throw new Error("AgentRouter response too large");
+    throw new Error("Report response too large");
   }
   return { status: res.status, text };
 }
@@ -555,25 +601,27 @@ async function once(
     error: "AI gateway returned its website instead of a report (HTTP 200).",
   };
 
-  for (const via of ["fetch", "https"] as const) {
+  const started = Date.now();
+  for (const via of ["https", "fetch"] as const) {
+    const slice = Math.min(12_000, timeoutMs - (Date.now() - started));
+    if (slice < 3_000) break;
     try {
       const upstream =
         via === "fetch"
-          ? await fetchCall(path, headers, body, timeoutMs)
-          : await httpsCallPreferV4(path, headers, body, timeoutMs);
+          ? await fetchCall(path, headers, body, slice)
+          : await httpsCallPreferV4(path, headers, body, slice);
       const attempt = classify(model, wire, via, upstream);
       if (attempt.kind !== "html") return attempt;
       last = attempt;
     } catch (error) {
       if (isTimeout(error)) {
         console.error("ArcScout upstream timeout", model, wire, via);
-        return { kind: "timeout", error: "AI gateway timed out before a report was ready." };
+        last = { kind: "timeout", error: "AI gateway timed out before a report was ready." };
+        continue;
       }
-      const message = error instanceof Error ? error.message : "AgentRouter request failed";
+      const message = error instanceof Error ? error.message : "Report request failed";
       console.error("ArcScout upstream error", model, wire, via, message);
-      if (via === "https") {
-        return { kind: "model", error: "AI gateway request failed." };
-      }
+      last = { kind: "model", error: "AI gateway request failed." };
     }
   }
   return last;
@@ -599,10 +647,10 @@ async function tryModel(
   };
 
   for (const wire of wires) {
-    const budget = Math.min(capMs, deadline - Date.now() - 500);
+    const budget = Math.min(capMs, deadline - Date.now() - 500, 18_000);
     if (budget < 4_000) return last;
     const attempt = await once(model, wire, prompt, apiKey, budget);
-    if (attempt.kind === "report" || attempt.kind === "auth" || attempt.kind === "timeout") {
+    if (attempt.kind === "report" || attempt.kind === "auth" || attempt.kind === "html" || attempt.kind === "timeout") {
       return attempt;
     }
     last = attempt;
@@ -635,7 +683,6 @@ async function completeReport(
     }
     lastError = attempt.error;
     blockedByWebsite = false;
-    if (attempt.kind === "timeout") break;
   }
 
   if (!blockedByWebsite && deadline - Date.now() > 5_000) {
@@ -703,14 +750,12 @@ export async function POST(req: NextRequest) {
     const completed = await completeReport(prompt, AGENTROUTER_API_KEY);
     const report =
       "error" in completed ? buildDataReport(address, results) : completed.report;
-    const model = "error" in completed ? "balances" : completed.model;
     if ("error" in completed) {
       console.error("ArcScout model fallback:", completed.error);
     }
 
     return NextResponse.json({
       address,
-      model,
       chainsScanned: CHAINS.length,
       activeChains: results.filter((r) => r.tokens.length > 0).length,
       totalPortfolioUsd:

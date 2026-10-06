@@ -26,7 +26,6 @@ import { formatWalletError } from "@/lib/walletErrors";
 
 interface ArcScoutResult {
   address: string;
-  model?: string;
   chainsScanned: number;
   activeChains: number;
   totalPortfolioUsd: number;
@@ -489,20 +488,11 @@ export default function ArcScoutPage() {
                 <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#d4c4b0] text-xs font-bold text-[#3d2c1e]">
                   AS
                 </div>
-                <span className="text-sm font-semibold text-[#1a1410]">
-                  {result.model && result.model !== "balances" ? "ArcScout Report" : "Balance report"}
-                </span>
+                <span className="text-sm font-semibold text-[#1a1410]">ArcScout Report</span>
                 <span className="ml-auto text-xs text-[#8a7d6b]">
-                  {result.model && result.model !== "balances"
-                    ? `AgentRouter · ${result.model}`
-                    : new Date(result.generatedAt).toLocaleTimeString()}
+                  {new Date(result.generatedAt).toLocaleTimeString()}
                 </span>
               </div>
-              {result.model && result.model !== "balances" ? null : (
-                <p className="mb-4 text-xs text-[#8a7d6b]">
-                  AgentRouter did not return a write-up, so this report is calculated from the balance scan.
-                </p>
-              )}
               <div className="prose prose-sm prose-stone max-w-none text-[#3d2c1e] [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-[#1a1410] [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-[#1a1410] [&_strong]:text-[#1a1410] [&_code]:rounded [&_code]:bg-[#f0ebe4] [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs">
                 <ReactMarkdown>{result.report}</ReactMarkdown>
               </div>
