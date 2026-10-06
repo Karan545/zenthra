@@ -4,6 +4,10 @@
     "src/app/api/agents/arcscout/route.ts": {
       "regions": ["iad1"],
       "maxDuration": 60
+    },
+    "src/app/api/agents/arcscout/reach/route.ts": {
+      "regions": ["iad1"],
+      "maxDuration": 30
     }
   }
 }
