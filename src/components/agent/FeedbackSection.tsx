@@ -10,11 +10,17 @@ import type { Agent } from "@/types/agent";
 interface FeedbackSectionProps {
   agent: Agent;
   onFeedbackSubmitted?: () => void;
+  note?: string;
+  extraTags?: readonly string[];
+  fallbackTag?: string;
 }
 
 export function FeedbackSection({
   agent,
   onFeedbackSubmitted,
+  note,
+  extraTags,
+  fallbackTag,
 }: FeedbackSectionProps) {
   const { summary, isLoading, refetch } = useAgentFeedback(agent.id);
 
@@ -119,6 +125,9 @@ export function FeedbackSection({
 
       <FeedbackForm
         agent={agent}
+        note={note}
+        extraTags={extraTags}
+        fallbackTag={fallbackTag}
         onSuccess={() => {
           void refetch();
           onFeedbackSubmitted?.();

@@ -33,9 +33,21 @@ type Phase = "idle" | "wallet" | "confirming" | "success";
 interface FeedbackFormProps {
   agent: Agent;
   onSuccess?: () => void;
+  /** Extra line under the heading, for the job the client is scoring. */
+  note?: string;
+  /** Tags shown before the shared list. */
+  extraTags?: readonly string[];
+  /** Tag stored when the client submits without picking one. */
+  fallbackTag?: string;
 }
 
-export function FeedbackForm({ agent, onSuccess }: FeedbackFormProps) {
+export function FeedbackForm({
+  agent,
+  onSuccess,
+  note,
+  extraTags,
+  fallbackTag,
+}: FeedbackFormProps) {
   const { address, isConnected } = useAccount();
   const { giveFeedback, isPending, reset } = useGiveFeedback();
 
@@ -86,7 +98,7 @@ export function FeedbackForm({ agent, onSuccess }: FeedbackFormProps) {
         {
           agentId: agent.id,
           score,
-          tag1: selectedTags[0] ?? "starred",
+          tag1: selectedTags[0] ?? fallbackTag ?? "starred",
           tag2: selectedTags[1] ?? "",
           comment,
         },
@@ -173,6 +185,7 @@ export function FeedbackForm({ agent, onSuccess }: FeedbackFormProps) {
       <p className="text-sm text-muted">
         Submit an on-chain reputation signal for agent #{agent.id} on Arc.
       </p>
+      {note ? <p className="mt-2 text-sm text-muted">{note}</p> : null}
 
       {isOwnAgent ? (
         <div className="mt-5 rounded-xl border border-border bg-[#faf8f5] px-4 py-3 text-sm text-muted">
@@ -240,7 +253,7 @@ export function FeedbackForm({ agent, onSuccess }: FeedbackFormProps) {
               </span>
             </p>
             <div className="flex flex-wrap gap-2">
-              {FEEDBACK_TAGS.map((tag) => {
+              {[...new Set([...(extraTags ?? []), ...FEEDBACK_TAGS])].map((tag) => {
                 const selected = selectedTags.includes(tag);
                 return (
                   <button

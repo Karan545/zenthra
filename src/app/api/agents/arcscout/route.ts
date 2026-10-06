@@ -9,7 +9,9 @@ import {
 } from "@/lib/verifyX402Payment";
 
 export const runtime = "nodejs";
-export const preferredRegion = "bom1";
+// The Mumbai region receives AgentRouter's website instead of the API.
+// This route runs in Washington so the completion call leaves that region.
+export const preferredRegion = "iad1";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
@@ -17,9 +19,9 @@ const COVALENT_API_KEY = process.env.COVALENT_API_KEY ?? "";
 const AGENTROUTER_API_KEY = process.env.AGENTROUTER_API_KEY ?? "";
 const HOST = "agentrouter.org";
 
-// deepseek-v4-flash is demoted on AgentRouter. These three are still routed.
-// Claude Opus 5 has the highest availability and the fastest slow-start time.
-const PRIMARY_MODELS = ["claude-opus-5", "gpt-6-astra", "claude-opus-4-8"];
+// deepseek-v4-flash is demoted on AgentRouter. gpt-5.6-sol is the current
+// OpenAI model on the OpenAI-compatible wire. Claude stays on the messages wire.
+const PRIMARY_MODELS = ["gpt-5.6-sol", "claude-opus-5", "gpt-6-astra", "claude-opus-4-8"];
 const LAST_RESORT_MODEL = "deepseek-v4-flash";
 const ANTHROPIC_MODELS = new Set([
   "claude-opus-5",
@@ -577,6 +579,12 @@ async function once(
   return last;
 }
 
+function wiresFor(model: string): Wire[] {
+  if (model.startsWith("claude")) return ["messages", "chat"];
+  if (ANTHROPIC_MODELS.has(model)) return ["chat", "messages"];
+  return ["chat"];
+}
+
 async function tryModel(
   model: string,
   prompt: string,
@@ -584,7 +592,7 @@ async function tryModel(
   deadline: number,
   capMs: number
 ): Promise<Attempt> {
-  const wires: Wire[] = ANTHROPIC_MODELS.has(model) ? ["chat", "messages"] : ["chat"];
+  const wires = wiresFor(model);
   let last: Attempt = {
     kind: "html",
     error: "AI gateway returned its website instead of a report (HTTP 200).",
@@ -594,12 +602,7 @@ async function tryModel(
     const budget = Math.min(capMs, deadline - Date.now() - 500);
     if (budget < 4_000) return last;
     const attempt = await once(model, wire, prompt, apiKey, budget);
-    if (
-      attempt.kind === "report" ||
-      attempt.kind === "auth" ||
-      attempt.kind === "timeout" ||
-      attempt.kind === "html"
-    ) {
+    if (attempt.kind === "report" || attempt.kind === "auth" || attempt.kind === "timeout") {
       return attempt;
     }
     last = attempt;
@@ -615,6 +618,7 @@ async function completeReport(
   const { primary, lastResort } = modelsToTry();
   let lastError = "AI gateway returned its website instead of a report (HTTP 200).";
   let blockedByWebsite = true;
+  let websiteReplies = 0;
 
   for (let index = 0; index < primary.length; index++) {
     const model = primary[index];
@@ -622,7 +626,13 @@ async function completeReport(
     if (deadline - Date.now() < 5_000) break;
     const attempt = await tryModel(model, prompt, apiKey, deadline, cap);
     if (attempt.kind === "report") return { report: attempt.report, model: attempt.model };
-    if (attempt.kind === "auth" || attempt.kind === "html") return { error: attempt.error };
+    if (attempt.kind === "auth") return { error: attempt.error };
+    if (attempt.kind === "html") {
+      websiteReplies += 1;
+      lastError = attempt.error;
+      if (websiteReplies >= 2) return { error: attempt.error };
+      continue;
+    }
     lastError = attempt.error;
     blockedByWebsite = false;
     if (attempt.kind === "timeout") break;

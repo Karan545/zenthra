@@ -23,6 +23,7 @@ import { sanitizeArcScoutProfile, type ArcScoutProfile } from "@/lib/arcscoutPro
 export function DiscoverHome() {
   const [search, setSearch] = useState("");
   const [arcProfile, setArcProfile] = useState<ArcScoutProfile | null>(null);
+  const [arcTokenId, setArcTokenId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,7 +31,10 @@ export function DiscoverHome() {
       .then((res) => res.json())
       .then((json) => {
         const profile = sanitizeArcScoutProfile(json?.profile);
-        if (!cancelled && profile) setArcProfile(profile);
+        const parsed = Number(json?.tokenId);
+        if (cancelled) return;
+        if (profile) setArcProfile(profile);
+        if (Number.isSafeInteger(parsed) && parsed > 0) setArcTokenId(parsed);
       })
       .catch(() => undefined);
     return () => {
@@ -41,17 +45,22 @@ export function DiscoverHome() {
   const curated = useMemo(
     () =>
       CURATED_AGENTS.map((agent) =>
-        agent.id === "arcscout" && arcProfile
+        agent.id === "arcscout"
           ? {
               ...agent,
-              name: arcProfile.name,
-              description: arcProfile.description,
-              pricePerTask: arcProfile.priceUsdc,
-              image: arcProfile.image || undefined,
+              ...(arcProfile
+                ? {
+                    name: arcProfile.name,
+                    description: arcProfile.description,
+                    pricePerTask: arcProfile.priceUsdc,
+                    image: arcProfile.image || undefined,
+                  }
+                : {}),
+              tokenId: arcTokenId ?? agent.tokenId,
             }
           : agent
       ),
-    [arcProfile]
+    [arcProfile, arcTokenId]
   );
   const {
     agents,

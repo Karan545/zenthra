@@ -1,14 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
-import { ArrowLeft, Search, Zap, Shield, Globe, ChevronRight, Copy, Check } from "lucide-react";
+import { ArrowLeft, Search, Shield, Globe, ChevronRight, Copy, Check, Star } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from "wagmi";
+import { FeedbackSection } from "@/components/agent/FeedbackSection";
+import { formatOnchainScore } from "@/components/agent/OnchainScore";
 import { erc20Abi } from "@/config/abis";
 import { arcMainnet } from "@/config/chains";
+import { identityRegistryAddress } from "@/config/contracts";
 import { x402Asset, x402PayTo } from "@/config/x402";
+import { useAgentFeedback } from "@/hooks/useAgentFeedback";
+import { explorerTokenUrl } from "@/lib/format";
+import type { Agent } from "@/types/agent";
 import {
   arcScoutFeeUnits,
   DEFAULT_ARCSCOUT_PROFILE,
@@ -20,6 +26,7 @@ import { formatWalletError } from "@/lib/walletErrors";
 
 interface ArcScoutResult {
   address: string;
+  model?: string;
   chainsScanned: number;
   activeChains: number;
   totalPortfolioUsd: number;
@@ -44,15 +51,22 @@ export default function ArcScoutPage() {
   const [copied, setCopied] = useState(false);
   const [paidTx, setPaidTx] = useState<{ hash: `0x${string}`; payer: `0x${string}` } | null>(null);
   const [profile, setProfile] = useState<ArcScoutProfile>(DEFAULT_ARCSCOUT_PROFILE);
+  const [tokenId, setTokenId] = useState<number | null>(null);
   const busy = useRef(false);
+
+  function rememberProfile(json: { profile?: unknown; tokenId?: unknown }) {
+    const next = sanitizeArcScoutProfile(json?.profile);
+    if (next) setProfile(next);
+    const parsed = Number(json?.tokenId);
+    if (Number.isSafeInteger(parsed) && parsed > 0) setTokenId(parsed);
+  }
 
   useEffect(() => {
     let cancelled = false;
     fetch("/api/agents/arcscout/profile")
       .then((res) => res.json())
       .then((json) => {
-        const next = sanitizeArcScoutProfile(json?.profile);
-        if (!cancelled && next) setProfile(next);
+        if (!cancelled) rememberProfile(json);
       })
       .catch(() => undefined);
     return () => {
@@ -65,6 +79,31 @@ export default function ArcScoutPage() {
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient({ chainId: arcMainnet.id });
+  const { summary: feedbackSummary, isLoading: feedbackLoading } = useAgentFeedback(
+    tokenId ?? undefined
+  );
+  const reputationAgent = useMemo<Agent | null>(() => {
+    if (!tokenId) return null;
+    return {
+      id: tokenId,
+      name: profile.name,
+      description: profile.description,
+      image: profile.image || undefined,
+      capabilities: ["Research", "Wallets", "Multi-chain", "Analytics", "DeFi"],
+      reputation: 0,
+      pricePerTask: profile.priceUsdc,
+      owner: x402PayTo,
+      isOnChain: true,
+    };
+  }, [tokenId, profile]);
+
+  const scoreValue = !tokenId
+    ? "—"
+    : feedbackLoading
+      ? "…"
+      : feedbackSummary.count > 0 && feedbackSummary.averageScore != null
+        ? formatOnchainScore(feedbackSummary.averageScore)
+        : "New";
 
   const reusePayment =
     Boolean(wallet && paidTx && paidTx.payer.toLowerCase() === wallet.toLowerCase());
@@ -86,6 +125,7 @@ export default function ArcScoutPage() {
     setError(null);
     setResult(null);
     let paymentHash: `0x${string}` | undefined;
+    let feeProfile = profile;
 
     try {
       paymentHash =
@@ -117,14 +157,11 @@ export default function ArcScoutPage() {
           throw new Error("Could not reach Arc.");
         }
 
-        let feeProfile = profile;
         try {
           const live = await fetch("/api/agents/arcscout/profile").then((res) => res.json());
           const next = sanitizeArcScoutProfile(live?.profile);
-          if (next) {
-            feeProfile = next;
-            setProfile(next);
-          }
+          rememberProfile(live);
+          if (next) feeProfile = next;
         } catch {
           // The price already on screen is used when the profile request fails.
         }
@@ -186,7 +223,7 @@ export default function ArcScoutPage() {
         if (!keepPayment) setPaidTx(null);
         setError(
           keepPayment
-            ? `${message} Your 1 USDC transfer can be reused — press Retry report.`
+            ? `${message} Your ${formatUsdcAmount(feeProfile.priceUsdc)} USDC transfer can be reused — press Retry report.`
             : message
         );
       } else {
@@ -254,8 +291,18 @@ export default function ArcScoutPage() {
               </span>
             </div>
             <p className="mt-1 text-[#5c4a38]">{profile.description}</p>
+            {tokenId ? (
+              <a
+                href={explorerTokenUrl(identityRegistryAddress, tokenId)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-block text-sm font-semibold text-[#3d2c1e] hover:underline"
+              >
+                Arc identity #{tokenId}
+              </a>
+            ) : null}
             {wallet?.toLowerCase() === x402PayTo.toLowerCase() ? (
-              <Link href="/my-agents" className="mt-2 inline-block text-sm font-semibold text-[#3d2c1e] hover:underline">
+              <Link href="/my-agents" className="mt-2 block text-sm font-semibold text-[#3d2c1e] hover:underline">
                 Edit price, picture, and description
               </Link>
             ) : null}
@@ -276,7 +323,7 @@ export default function ArcScoutPage() {
         <div className="mb-8 grid grid-cols-3 gap-3">
           {[
             { icon: Globe, label: "Chains covered", value: "5" },
-            { icon: Zap, label: "Avg response", value: "~8s" },
+            { icon: Star, label: "On-chain score", value: scoreValue },
             { icon: Shield, label: "Price per report", value: `${formatUsdcAmount(profile.priceUsdc)} USDC` },
           ].map(({ icon: Icon, label, value }) => (
             <div
@@ -442,25 +489,60 @@ export default function ArcScoutPage() {
                 <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#d4c4b0] text-xs font-bold text-[#3d2c1e]">
                   AS
                 </div>
-                <span className="text-sm font-semibold text-[#1a1410]">ArcScout Report</span>
+                <span className="text-sm font-semibold text-[#1a1410]">
+                  {result.model && result.model !== "balances" ? "ArcScout Report" : "Balance report"}
+                </span>
                 <span className="ml-auto text-xs text-[#8a7d6b]">
-                  {new Date(result.generatedAt).toLocaleTimeString()}
+                  {result.model && result.model !== "balances"
+                    ? `AgentRouter · ${result.model}`
+                    : new Date(result.generatedAt).toLocaleTimeString()}
                 </span>
               </div>
+              {result.model && result.model !== "balances" ? null : (
+                <p className="mb-4 text-xs text-[#8a7d6b]">
+                  AgentRouter did not return a write-up, so this report is calculated from the balance scan.
+                </p>
+              )}
               <div className="prose prose-sm prose-stone max-w-none text-[#3d2c1e] [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-[#1a1410] [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-[#1a1410] [&_strong]:text-[#1a1410] [&_code]:rounded [&_code]:bg-[#f0ebe4] [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs">
                 <ReactMarkdown>{result.report}</ReactMarkdown>
               </div>
             </div>
 
-            {/* CTA */}
-            <div className="rounded-xl border border-[#e8e0d4] bg-[#faf8f5] px-5 py-4 text-sm text-[#5c4a38]">
-              Want to use ArcScout for your project?{" "}
-              <Link href="/register" className="font-semibold text-[#3d2c1e] hover:underline inline-flex items-center gap-0.5">
-                List your agent on Zenthra <ChevronRight className="h-3 w-3" />
-              </Link>
-            </div>
+            <a
+              href="#leave-feedback"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-[#3d2c1e] hover:underline"
+            >
+              Leave an on-chain score for this report
+              <ChevronRight className="h-3.5 w-3.5" />
+            </a>
           </div>
         )}
+
+      <div id="arcscout-reputation" className="mt-10">
+        <h2 className="text-lg font-bold text-[#1a1410]">On-chain reputation</h2>
+        <p className="mt-1 text-sm leading-relaxed text-[#5c4a38]">
+          A client who hired ArcScout records the score here. Arc stores it on the Reputation Registry, and that public record is what the next client sees before hiring. The owner cannot review their own agent.
+        </p>
+        {reputationAgent ? (
+          <div className="mt-4">
+            <FeedbackSection
+              agent={reputationAgent}
+              extraTags={["Wallet report"]}
+              fallbackTag="Wallet report"
+              note="Score the report this agent wrote for you. Confirm the transaction in your wallet. Arc charges the network fee in USDC, separate from the report price."
+            />
+          </div>
+        ) : (
+          <div className="mt-4 rounded-2xl border border-[#e8e0d4] bg-white/80 p-6 text-sm text-[#5c4a38]">
+            Reputation attaches to ArcScout’s identity on Arc. The owner saves the agent once from My agents, and then any other wallet can record a score after the work.
+            {wallet?.toLowerCase() === x402PayTo.toLowerCase() ? (
+              <Link href="/my-agents" className="mt-3 block font-semibold text-[#3d2c1e] hover:underline">
+                Save ArcScout to my wallet
+              </Link>
+            ) : null}
+          </div>
+        )}
+      </div>
       </div>
     </div>
   );

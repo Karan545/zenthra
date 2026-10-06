@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, ShieldCheck } from "lucide-react";
+import { OnchainScore } from "@/components/agent/OnchainScore";
 import { cn } from "@/lib/utils";
 import type { CuratedAgent } from "@/data/curatedAgents";
 
@@ -82,6 +83,18 @@ export function CuratedAgentRow({ agent, index = 0 }: CuratedAgentRowProps) {
               {agent.pricePerTask}
               <span className="ml-1 text-sm font-sans font-normal text-muted">USDC</span>
             </p>
+            {agent.tokenId > 0 ? (
+              <div className="mt-2">
+                <p className="text-[11px] text-muted-soft">Identity #{agent.tokenId}</p>
+                {agent.pagePath ? (
+                  <Link href={`${agent.pagePath}#leave-feedback`} className="hover:underline">
+                    <OnchainScore agentId={agent.tokenId} />
+                  </Link>
+                ) : (
+                  <OnchainScore agentId={agent.tokenId} />
+                )}
+              </div>
+            ) : null}
           </div>
 
           {agent.pagePath ? (
