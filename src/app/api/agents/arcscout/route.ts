@@ -694,48 +694,55 @@ async function completeReport(
   return { error: lastError };
 }
 
-export async function GET() {
+async function probeHost(hostname: string) {
   const tiny = JSON.stringify({
     model: "gpt-6-astra",
     messages: [{ role: "user", content: "Reply with the word OK." }],
-    max_tokens: 16,
-    temperature: 0,
+    max_tokens: 8,
     stream: false,
   });
-  const describe = (upstream: UpstreamResult) => {
-    const start = upstream.text.replace(/^\uFEFF/, "").trimStart();
-    const kind = isHtml(upstream.text) ? "html" : start.startsWith("{") || start.startsWith("[") ? "json" : "other";
-    return {
-      status: upstream.status,
-      kind,
-      bytes: upstream.text.length,
-      report: kind === "json" ? Boolean(extractReport(upstream.text)) : false,
-    };
+  const headers = requestHeaders("sk-probe-invalid", "chat");
+  const upstream = await new Promise<UpstreamResult>((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname,
+        path: "/v1/chat/completions",
+        method: "POST",
+        headers: { ...headers, host: hostname, "Content-Length": Buffer.byteLength(tiny) },
+        family: 4,
+        servername: hostname,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer) => chunks.push(chunk));
+        res.on("end", () =>
+          resolve({ status: res.statusCode ?? 0, text: Buffer.concat(chunks).toString("utf8") })
+        );
+      }
+    );
+    req.setTimeout(12_000, () => req.destroy(new Error("timed out")));
+    req.on("error", reject);
+    req.write(tiny);
+    req.end();
+  });
+  const start = upstream.text.replace(/^\uFEFF/, "").trimStart();
+  const kind = start.startsWith("<") ? "html" : start.startsWith("{") || start.startsWith("[") ? "json" : "other";
+  return {
+    host: hostname,
+    status: upstream.status,
+    kind,
+    bytes: upstream.text.length,
+    prefix: start.slice(0, 90).replace(/\s+/g, " "),
   };
+}
+
+export async function GET() {
   try {
-    const reach = describe(
-      await httpsCallPreferV4(
-        "/v1/chat/completions",
-        requestHeaders("sk-probe-invalid", "chat"),
-        tiny,
-        12_000
-      )
-    );
-    if (reach.kind !== "json" || !AGENTROUTER_API_KEY) {
-      return NextResponse.json({ reach });
-    }
-    const live = describe(
-      await httpsCallPreferV4(
-        "/v1/chat/completions",
-        requestHeaders(AGENTROUTER_API_KEY, "chat"),
-        tiny,
-        20_000
-      )
-    );
-    return NextResponse.json({ reach, live });
+    const hosts = await Promise.all([probeHost("agentrouter.org"), probeHost("co.agentrouter.org")]);
+    return NextResponse.json({ hosts });
   } catch (error) {
     const message = error instanceof Error ? error.message.slice(0, 100) : "failed";
-    return NextResponse.json({ reach: { status: 0, kind: "error", bytes: 0, report: false, message } });
+    return NextResponse.json({ message });
   }
 }
 
