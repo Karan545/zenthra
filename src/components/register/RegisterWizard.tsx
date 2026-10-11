@@ -422,8 +422,8 @@ export function RegisterWizard() {
                   required
                   type="number"
                   min={0}
-                  step="0.01"
-                  placeholder="2.50"
+                  step="0.001"
+                  placeholder="0.001"
                   value={draft.pricePerTask}
                   onChange={(e) => setField("pricePerTask", e.target.value)}
                   error={errors.pricePerTask}
@@ -435,7 +435,7 @@ export function RegisterWizard() {
                   value={draft.x402Endpoint}
                   onChange={(e) => setField("x402Endpoint", e.target.value)}
                   error={errors.x402Endpoint}
-                  hint="Where clients call your agent for paid tasks."
+                  hint="The HTTPS URL that accepts a paid task. Use the working API, not a registration JSON file."
                 />
               </div>
             )}

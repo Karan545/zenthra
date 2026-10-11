@@ -6,6 +6,7 @@ import { ArrowLeft, MessageSquare, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { AgentAvatar } from "@/components/ui/AgentAvatar";
 import { FeedbackSection } from "@/components/agent/FeedbackSection";
+import { RequestWorkPanel } from "@/components/agent/RequestWorkPanel";
 
 import { useCuratorListings } from "@/hooks/useCuratorListings";
 import {
@@ -208,6 +209,21 @@ export function AgentProfile({ id }: AgentProfileProps) {
             className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start"
           >
 
+            {agent.x402Endpoint ? (
+              <Button
+                variant="primary"
+                size="md"
+                type="button"
+                onClick={() =>
+                  document
+                    .getElementById("request-work")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+              >
+                <Sparkles size={16} strokeWidth={1.75} />
+                Request work
+              </Button>
+            ) : null}
             <Button
               variant="secondary"
               size="md"
@@ -217,24 +233,13 @@ export function AgentProfile({ id }: AgentProfileProps) {
               <MessageSquare size={16} strokeWidth={1.75} />
               Leave Feedback
             </Button>
-            {agent.x402Endpoint ? (
-              <a
-                href={agent.x402Endpoint}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border-strong bg-transparent px-5 text-sm font-medium text-foreground transition-colors hover:border-headline hover:bg-white"
-              >
-                <Sparkles size={16} strokeWidth={1.75} />
-                x402 endpoint
-              </a>
-            ) : null}
           </motion.div>
         </div>
       </section>
 
       <div className="page-container py-12 sm:py-16">
         <div className="mx-auto max-w-2xl space-y-8">
-          {null}
+          <RequestWorkPanel agent={agent} />
 
           {categoryLabels.length > 0 ? (
             <motion.section
