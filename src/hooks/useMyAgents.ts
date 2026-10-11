@@ -25,6 +25,7 @@ export function useMyAgents() {
     isLoading,
     isError,
     error,
+    contractMissing,
     refetch: refetchCurator,
   } = useCuratorListings();
 
@@ -101,6 +102,7 @@ export function useMyAgents() {
     isLoading: isConnected ? isLoading : false,
     isError,
     error,
+    contractMissing,
     refetch,
   };
 }

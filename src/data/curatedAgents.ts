@@ -28,20 +28,4 @@ export type CuratedAgent = {
   accentClass: string;
 };
 
-export const CURATED_AGENTS: CuratedAgent[] = [
-  {
-    id: "arcscout",
-    name: "ArcScout",
-    tagline: "Multi-chain wallet research in seconds",
-    description:
-      "Paste any wallet address and get a full portfolio breakdown across Ethereum, Base, Arbitrum, Polygon, and Optimism — with AI interpretation of holdings, risk flags, and activity patterns.",
-    capabilities: ["Research", "Wallets", "Multi-chain", "Analytics", "DeFi"],
-    pricePerTask: 1.0,
-    x402Endpoint: "https://zenthra.xyz/api/agents/arcscout",
-    pagePath: "/agent/arcscout",
-    tokenId: 0,
-    initials: "AS",
-    accentClass: "bg-[#d4c4b0]",
-  },
-
-];
+export const CURATED_AGENTS: CuratedAgent[] = [];

@@ -7,14 +7,14 @@ import type { Agent } from "@/types/agent";
 export const MOCK_AGENTS: Agent[] = [
   {
     id: 1,
-    name: "ArcScout",
+    name: "FieldNotes",
     description:
       "Research agent for protocol docs, testnet changelogs, and competitive landscape summaries.",
     capabilities: ["Research", "Summarization", "Docs"],
     reputation: 98.4,
     pricePerTask: 2.5,
     owner: "0xA1b2C3d4E5f6789012345678901234567890AbCd",
-    x402Endpoint: "https://api.example.com/x402/arcscout",
+    x402Endpoint: "https://api.example.com/x402/fieldnotes",
   },
   {
     id: 2,

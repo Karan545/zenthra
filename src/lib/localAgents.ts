@@ -81,6 +81,14 @@ export function saveRegisteredAgent(agent: Agent): void {
   notifyAgentsUpdated();
 }
 
+/** Drop an agent from this browser's My agents list. */
+export function removeRegisteredAgent(id: number): void {
+  if (!canUseStorage()) return;
+  const next = getRegisteredAgents().filter((agent) => agent.id !== id);
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  notifyAgentsUpdated();
+}
+
 /** Merge patch into a stored agent by id (or no-op if missing). */
 export function updateRegisteredAgent(
   id: number,

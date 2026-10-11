@@ -1,4 +1,4 @@
-/** ERC-20 ABI for balance checks, approvals, and the ArcScout USDC fee transfer. */
+/** ERC-20 ABI for balance checks and approvals. */
 export const erc20Abi = [
   {
     type: "function",

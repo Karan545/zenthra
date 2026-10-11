@@ -12,9 +12,8 @@ import { Button } from "@/components/ui/Button";
 import { ConnectWallet } from "@/components/web3/ConnectWallet";
 import { AgentGridSkeleton } from "@/components/directory/AgentCardSkeleton";
 import { DelistConfirmDialog } from "@/components/agents/DelistConfirmDialog";
-import { ArcScoutOwnerCard } from "@/components/agents/ArcScoutOwnerCard";
+import { RemoveAgentDialog } from "@/components/agents/RemoveAgentDialog";
 import { useMyAgents, type MyAgentRow } from "@/hooks/useMyAgents";
-import { x402PayTo } from "@/config/x402";
 import { ListOnZenthraCard } from "@/components/register/ListOnZenthra";
 import { shortenAddress } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -22,17 +21,18 @@ import type { Agent } from "@/types/agent";
 
 export function MyAgentsContent() {
   const {
-    address,
     isConnected,
     agents,
     listedCount,
     registeredOnlyCount,
     stakedUsdc,
     isLoading,
+    contractMissing,
     refetch,
   } = useMyAgents();
 
   const [delistTarget, setDelistTarget] = useState<Agent | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<Agent | null>(null);
   const [listTarget, setListTarget] = useState<MyAgentRow | null>(null);
   const [listTick, setListTick] = useState(0);
   void listTick;
@@ -57,12 +57,9 @@ export function MyAgentsContent() {
     );
   }
 
-  const ownsArcScout = address?.toLowerCase() === x402PayTo.toLowerCase();
-
   if (isLoading) {
     return (
       <div className="space-y-6">
-        {ownsArcScout ? <ArcScoutOwnerCard /> : null}
         <p className="text-sm text-muted">Loading your agents…</p>
         <AgentGridSkeleton count={3} />
       </div>
@@ -71,12 +68,11 @@ export function MyAgentsContent() {
 
   return (
     <div className="space-y-8">
-      {ownsArcScout ? <ArcScoutOwnerCard /> : null}
       {/* Summary */}
       <div className="grid gap-4 sm:grid-cols-3 sm:gap-5">
         <SummaryTile
           label="Your agents"
-          value={String(agents.length + (ownsArcScout ? 1 : 0))}
+          value={String(agents.length)}
         />
         <SummaryTile
           label="Listed on Zenthra"
@@ -98,8 +94,6 @@ export function MyAgentsContent() {
             </>
           ) : listedCount > 0 ? (
             <>All of your agents with local data are managed below.</>
-          ) : ownsArcScout ? (
-            <>ArcScout is managed above. Register another agent to list it here too.</>
           ) : (
             <>No agents for this wallet yet.</>
           )}
@@ -121,13 +115,9 @@ export function MyAgentsContent() {
 
       {agents.length === 0 ? (
         <div className="card-surface rounded-2xl px-6 py-14 text-center">
-          <h2 className="font-display text-2xl text-headline">
-            {ownsArcScout ? "ArcScout is ready above" : "No agents yet"}
-          </h2>
+          <h2 className="font-display text-2xl text-headline">No agents yet</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-            {ownsArcScout
-              ? "Change its price, picture, or description on the ArcScout card. Agents you register separately show in this list."
-              : "Register an ERC-8004 agent, then list it on Zenthra with a 1 USDC stake."}
+            Register an ERC-8004 agent, then list it on Zenthra with a 1 USDC stake.
           </p>
           <div className="mt-6 flex justify-center">
             <Button href="/register" variant="primary" size="md">
@@ -143,6 +133,7 @@ export function MyAgentsContent() {
               agent={agent}
               index={index}
               onDelist={() => setDelistTarget(agent)}
+              onRemove={() => setRemoveTarget(agent)}
               onList={() => setListTarget(agent)}
               listingOpen={listTarget?.id === agent.id}
               onCloseList={() => setListTarget(null)}
@@ -161,6 +152,15 @@ export function MyAgentsContent() {
         open={Boolean(delistTarget)}
         onClose={() => setDelistTarget(null)}
         onSuccess={() => {
+          void refetch();
+        }}
+      />
+      <RemoveAgentDialog
+        agent={removeTarget}
+        open={Boolean(removeTarget)}
+        curatorMissing={contractMissing}
+        onClose={() => setRemoveTarget(null)}
+        onRemoved={() => {
           void refetch();
         }}
       />
@@ -198,6 +198,7 @@ function MyAgentRowCard({
   agent,
   index,
   onDelist,
+  onRemove,
   onList,
   listingOpen,
   onCloseList,
@@ -206,6 +207,7 @@ function MyAgentRowCard({
   agent: MyAgentRow;
   index: number;
   onDelist: () => void;
+  onRemove: () => void;
   onList: () => void;
   listingOpen: boolean;
   onCloseList: () => void;
@@ -322,6 +324,9 @@ function MyAgentRowCard({
                 List on Zenthra
               </Button>
             )}
+            <Button type="button" variant="ghost" size="sm" onClick={onRemove}>
+              Remove
+            </Button>
           </div>
         </div>
       </div>

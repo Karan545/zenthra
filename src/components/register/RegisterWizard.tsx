@@ -356,7 +356,7 @@ export function RegisterWizard() {
                   label="Agent name"
                   name="name"
                   required
-                  placeholder="e.g. ArcScout"
+                  placeholder="e.g. FieldNotes"
                   value={draft.name}
                   onChange={(e) => setField("name", e.target.value)}
                   error={errors.name}

@@ -118,7 +118,7 @@ export function Hero() {
             <ul className="divide-y divide-border bg-white">
               {[
                 {
-                  name: "ArcScout-7",
+                  name: "FieldNotes",
                   role: "Research",
                   status: "Available",
                   score: "98.4",

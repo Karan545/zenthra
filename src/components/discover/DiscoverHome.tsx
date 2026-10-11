@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, RefreshCw } from "lucide-react";
@@ -14,7 +14,6 @@ import { DiscoverEmptyState } from "@/components/discover/DiscoverEmptyState";
 import { DiscoverSearch } from "@/components/discover/DiscoverSearch";
 import { CATEGORIES } from "@/data/categories";
 import { CURATED_AGENTS } from "@/data/curatedAgents";
-import { sanitizeArcScoutProfile, type ArcScoutProfile } from "@/lib/arcscoutProfile";
 
 /**
  * Main discovery experience: hero, search, categories, recent listed agents.
@@ -22,46 +21,6 @@ import { sanitizeArcScoutProfile, type ArcScoutProfile } from "@/lib/arcscoutPro
  */
 export function DiscoverHome() {
   const [search, setSearch] = useState("");
-  const [arcProfile, setArcProfile] = useState<ArcScoutProfile | null>(null);
-  const [arcTokenId, setArcTokenId] = useState<number | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/agents/arcscout/profile")
-      .then((res) => res.json())
-      .then((json) => {
-        const profile = sanitizeArcScoutProfile(json?.profile);
-        const parsed = Number(json?.tokenId);
-        if (cancelled) return;
-        if (profile) setArcProfile(profile);
-        if (Number.isSafeInteger(parsed) && parsed > 0) setArcTokenId(parsed);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const curated = useMemo(
-    () =>
-      CURATED_AGENTS.map((agent) =>
-        agent.id === "arcscout"
-          ? {
-              ...agent,
-              ...(arcProfile
-                ? {
-                    name: arcProfile.name,
-                    description: arcProfile.description,
-                    pricePerTask: arcProfile.priceUsdc,
-                    image: arcProfile.image || undefined,
-                  }
-                : {}),
-              tokenId: arcTokenId ?? agent.tokenId,
-            }
-          : agent
-      ),
-    [arcProfile, arcTokenId]
-  );
   const {
     agents,
     allListed,
@@ -208,28 +167,29 @@ export function DiscoverHome() {
               </section>
             ) : (
               <>
-                {/* Curated launch agents */}
-                <section>
-                  <div className="mb-6 flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-headline" />
-                      <p className="text-[13px] font-medium uppercase tracking-[0.04em] text-headline">
-                        Launch Partners
+                {CURATED_AGENTS.length > 0 ? (
+                  <section>
+                    <div className="mb-6 flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-headline" />
+                        <p className="text-[13px] font-medium uppercase tracking-[0.04em] text-headline">
+                          Launch Partners
+                        </p>
+                      </div>
+                      <h2 className="font-display text-2xl text-headline sm:text-3xl">
+                        Verified agents
+                      </h2>
+                      <p className="text-sm text-muted">
+                        Handpicked, real working agents. Each has a live x402 endpoint and an on-chain identity.
                       </p>
                     </div>
-                    <h2 className="font-display text-2xl text-headline sm:text-3xl">
-                      Verified agents
-                    </h2>
-                    <p className="text-sm text-muted">
-                      Handpicked, real working agents. Each has a live x402 endpoint and an on-chain identity.
-                    </p>
-                  </div>
-                  <div className="space-y-3">
-                    {curated.map((agent) => (
-                      <CuratedAgentRow key={agent.id} agent={agent} />
-                    ))}
-                  </div>
-                </section>
+                    <div className="space-y-3">
+                      {CURATED_AGENTS.map((agent) => (
+                        <CuratedAgentRow key={agent.id} agent={agent} />
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
 
                 {/* Categories */}
                 <section>
