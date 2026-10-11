@@ -12,6 +12,7 @@ import { erc20Abi } from "@/config/abis";
 import { zenthraCuratorV2Abi } from "@/config/abis/zenthraCuratorV2";
 import { usdcAddress, zenthraCuratorV2Address } from "@/config/contracts";
 import { arcMainnet } from "@/config/chains";
+import { requireContractCode } from "@/lib/requireContractCode";
 import { formatWalletError } from "@/lib/walletErrors";
 
 const CONTRACT = zenthraCuratorV2Address;
@@ -48,6 +49,7 @@ export function useRequestTask() {
       if (!address) throw new Error("Connect your wallet to request a task.");
       if (amountUsdc <= 0) throw new Error("Task amount must be positive.");
       if (!publicClient) throw new Error("Could not reach Arc Mainnet RPC.");
+      await requireContractCode(publicClient, CONTRACT, "ZenthraCurator");
 
       if (chainId !== arcMainnet.id) {
         try {

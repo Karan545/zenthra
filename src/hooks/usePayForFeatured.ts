@@ -12,6 +12,7 @@ import { erc20Abi } from "@/config/abis";
 import { zenthraCuratorV2Abi } from "@/config/abis/zenthraCuratorV2";
 import { usdcAddress, zenthraCuratorV2Address } from "@/config/contracts";
 import { arcMainnet } from "@/config/chains";
+import { requireContractCode } from "@/lib/requireContractCode";
 import { formatWalletError } from "@/lib/walletErrors";
 
 const CONTRACT = zenthraCuratorV2Address;
@@ -47,6 +48,7 @@ export function usePayForFeatured() {
         throw new Error("Connect your wallet to purchase featured status.");
       if (numDays <= 0) throw new Error("numDays must be at least 1.");
       if (!publicClient) throw new Error("Could not reach Arc Mainnet RPC.");
+      await requireContractCode(publicClient, CONTRACT, "ZenthraCurator");
 
       if (chainId !== arcMainnet.id) {
         try {

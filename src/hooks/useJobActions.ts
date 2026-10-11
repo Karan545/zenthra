@@ -6,6 +6,7 @@ import { parseUnits, type Address } from "viem";
 import { zenthraJobBoardAbi, erc20Abi } from "@/config/abis";
 import { zenthraJobBoardAddress, usdcAddress } from "@/config/contracts";
 import { arcMainnet } from "@/config/chains";
+import { requireContractCode } from "@/lib/requireContractCode";
 import { formatWalletError } from "@/lib/walletErrors";
 import { getArcPublicClient } from "@/lib/arcClient";
 
@@ -79,6 +80,9 @@ export function useJobActions() {
 
   const approve = useCallback(async (spender: Address, amount: bigint) => {
     if (amount === BigInt(0)) return;
+    const c = client();
+    if (!c) throw new Error("Could not reach Arc RPC.");
+    await requireContractCode(c, spender, "Zenthra contract");
     const hash = await writeContractAsync({
       address: usdcAddress as Address,
       abi: erc20Abi,

@@ -14,6 +14,7 @@ import {
   zenthraCuratorAddress,
 } from "@/config/contracts";
 import { arcTestnet } from "@/config/chains";
+import { requireContractCode } from "@/lib/requireContractCode";
 import { formatWalletError } from "@/lib/walletErrors";
 import { updateRegisteredAgent, notifyAgentsUpdated } from "@/lib/localAgents";
 
@@ -59,6 +60,12 @@ export function useDelistAgent() {
       if (!publicClient) {
         throw new Error("Could not reach Arc RPC.");
       }
+
+      await requireContractCode(
+        publicClient,
+        zenthraCuratorAddress,
+        "ZenthraCurator"
+      );
 
       options?.onPhase?.("wallet");
 

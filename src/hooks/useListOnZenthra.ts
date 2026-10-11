@@ -17,6 +17,7 @@ import {
   zenthraCuratorAddress,
 } from "@/config/contracts";
 import { arcTestnet } from "@/config/chains";
+import { requireContractCode } from "@/lib/requireContractCode";
 import { formatWalletError } from "@/lib/walletErrors";
 import { updateRegisteredAgent } from "@/lib/localAgents";
 import { buildListingCapabilities } from "@/lib/categories";
@@ -80,6 +81,12 @@ export function useListOnZenthra() {
       if (!publicClient) {
         throw new Error("Could not reach Arc RPC.");
       }
+
+      await requireContractCode(
+        publicClient,
+        zenthraCuratorAddress,
+        "ZenthraCurator"
+      );
 
       // Read live stake amount (fallback to 1 USDC)
       let stake = ONE_USDC;
