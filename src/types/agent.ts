@@ -18,7 +18,7 @@ export type Agent = {
   x402Endpoint?: string;
   /** True when minted via Identity Registry and/or known on-chain. */
   isOnChain?: boolean;
-  /** Listed on ZenthraCurator (staked listing). */
+  /** Shown in the Zenthra directory. */
   isListedOnZenthra?: boolean;
   /** Curator featured flag. */
   isFeatured?: boolean;
@@ -30,8 +30,7 @@ export type Agent = {
   registeredAt?: string;
   /** Unix seconds when listed on curator (if known). */
   listedAt?: number;
-  /** USDC stake locked on Curator (display units, e.g. 1). */
-  stakeAmount?: number;
+
 };
 
 export type AgentCardData = Agent;

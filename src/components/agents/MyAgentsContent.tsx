@@ -2,19 +2,12 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import {
-  ArrowUpRight,
-  RefreshCw,
-  Shield,
-  Wallet,
-} from "lucide-react";
+import { ArrowUpRight, RefreshCw, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ConnectWallet } from "@/components/web3/ConnectWallet";
 import { AgentGridSkeleton } from "@/components/directory/AgentCardSkeleton";
-import { DelistConfirmDialog } from "@/components/agents/DelistConfirmDialog";
 import { RemoveAgentDialog } from "@/components/agents/RemoveAgentDialog";
 import { useMyAgents, type MyAgentRow } from "@/hooks/useMyAgents";
-import { ListOnZenthraCard } from "@/components/register/ListOnZenthra";
 import { shortenAddress } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Agent } from "@/types/agent";
@@ -24,18 +17,11 @@ export function MyAgentsContent() {
     isConnected,
     agents,
     listedCount,
-    registeredOnlyCount,
-    stakedUsdc,
     isLoading,
-    contractMissing,
     refetch,
   } = useMyAgents();
 
-  const [delistTarget, setDelistTarget] = useState<Agent | null>(null);
   const [removeTarget, setRemoveTarget] = useState<Agent | null>(null);
-  const [listTarget, setListTarget] = useState<MyAgentRow | null>(null);
-  const [listTick, setListTick] = useState(0);
-  void listTick;
 
   if (!isConnected) {
     return (
@@ -47,8 +33,7 @@ export function MyAgentsContent() {
           Connect to view your agents
         </h2>
         <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-          See agents you registered, stake status on ZenthraCurator, and delist
-          to recover USDC.
+          See the agents you registered. Each one is listed in the directory.
         </p>
         <div className="mt-6 flex justify-center">
           <ConnectWallet size="md" />
@@ -69,34 +54,23 @@ export function MyAgentsContent() {
   return (
     <div className="space-y-8">
       {/* Summary */}
-      <div className="grid gap-4 sm:grid-cols-3 sm:gap-5">
+      <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
         <SummaryTile
           label="Your agents"
           value={String(agents.length)}
         />
         <SummaryTile
-          label="Listed on Zenthra"
+          label="In the directory"
           value={String(listedCount)}
           accent
-        />
-        <SummaryTile
-          label="USDC staked"
-          value={stakedUsdc > 0 ? `${stakedUsdc}` : "0"}
         />
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted">
-          {registeredOnlyCount > 0 ? (
-            <>
-              {registeredOnlyCount} registered but not listed — stake 1 USDC to
-              appear in the Directory.
-            </>
-          ) : listedCount > 0 ? (
-            <>All of your agents with local data are managed below.</>
-          ) : (
-            <>No agents for this wallet yet.</>
-          )}
+          {agents.length > 0
+            ? "Registered agents are listed in the directory."
+            : "No agents for this wallet yet."}
         </p>
         <div className="flex items-center gap-3">
           <Button href="/register" variant="secondary" size="sm">
@@ -117,7 +91,7 @@ export function MyAgentsContent() {
         <div className="card-surface rounded-2xl px-6 py-14 text-center">
           <h2 className="font-display text-2xl text-headline">No agents yet</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-            Register an ERC-8004 agent, then list it on Zenthra with a 1 USDC stake.
+            Register an ERC-8004 agent. It is listed in the directory when the identity is minted.
           </p>
           <div className="mt-6 flex justify-center">
             <Button href="/register" variant="primary" size="md">
@@ -132,33 +106,15 @@ export function MyAgentsContent() {
               key={agent.id}
               agent={agent}
               index={index}
-              onDelist={() => setDelistTarget(agent)}
               onRemove={() => setRemoveTarget(agent)}
-              onList={() => setListTarget(agent)}
-              listingOpen={listTarget?.id === agent.id}
-              onCloseList={() => setListTarget(null)}
-              onListed={() => {
-                setListTarget(null);
-                setListTick((n) => n + 1);
-                void refetch();
-              }}
             />
           ))}
         </ul>
       )}
 
-      <DelistConfirmDialog
-        agent={delistTarget}
-        open={Boolean(delistTarget)}
-        onClose={() => setDelistTarget(null)}
-        onSuccess={() => {
-          void refetch();
-        }}
-      />
       <RemoveAgentDialog
         agent={removeTarget}
         open={Boolean(removeTarget)}
-        curatorMissing={contractMissing}
         onClose={() => setRemoveTarget(null)}
         onRemoved={() => {
           void refetch();
@@ -197,21 +153,11 @@ function SummaryTile({
 function MyAgentRowCard({
   agent,
   index,
-  onDelist,
   onRemove,
-  onList,
-  listingOpen,
-  onCloseList,
-  onListed,
 }: {
   agent: MyAgentRow;
   index: number;
-  onDelist: () => void;
   onRemove: () => void;
-  onList: () => void;
-  listingOpen: boolean;
-  onCloseList: () => void;
-  onListed: () => void;
 }) {
   const initials = agent.name
     .split(/\s+/)
@@ -219,13 +165,6 @@ function MyAgentRowCard({
     .map((w) => w[0])
     .join("")
     .toUpperCase();
-
-  const stake =
-    agent.stakeAmount != null && agent.stakeAmount > 0
-      ? `${agent.stakeAmount} USDC`
-      : agent.isListedOnZenthra
-        ? "1 USDC"
-        : "—";
 
   return (
     <motion.li
@@ -253,15 +192,9 @@ function MyAgentRowCard({
               <h3 className="text-[15px] font-semibold tracking-tight text-foreground">
                 {agent.name}
               </h3>
-              {agent.isListedOnZenthra ? (
-                <span className="rounded-md bg-[#f0ebe3] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-headline-deep">
-                  Listed on Zenthra
-                </span>
-              ) : (
-                <span className="rounded-md border border-border bg-white px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
-                  Not listed
-                </span>
-              )}
+              <span className="rounded-md bg-[#f0ebe3] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-headline-deep">
+                Listed
+              </span>
             </div>
             <p className="mt-0.5 font-mono text-[12px] text-muted-soft">
               #{agent.id} · {shortenAddress(agent.owner)}
@@ -286,22 +219,11 @@ function MyAgentRowCard({
 
         <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-end lg:flex-col lg:items-stretch lg:min-w-[200px]">
           <div className="rounded-xl border border-border bg-[#faf8f5] px-4 py-3">
-            <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.04em] text-muted-soft">
-              <Shield size={12} strokeWidth={1.75} />
-              Stake status
-            </div>
-            <p className="mt-1 text-sm font-medium text-foreground">
-              {agent.isListedOnZenthra ? (
-                <>
-                  Locked ·{" "}
-                  <span className="text-headline">{stake}</span>
-                </>
-              ) : (
-                <span className="text-muted">No stake</span>
-              )}
+            <p className="text-[11px] uppercase tracking-[0.04em] text-muted-soft">
+              Price / task
             </p>
-            <p className="mt-0.5 text-[12px] text-muted-soft">
-              {agent.pricePerTask} USDC / task
+            <p className="mt-1 text-sm font-medium text-foreground">
+              {agent.pricePerTask} USDC
             </p>
           </div>
 
@@ -310,20 +232,6 @@ function MyAgentRowCard({
               Profile
               <ArrowUpRight size={14} strokeWidth={1.75} />
             </Button>
-            {agent.isListedOnZenthra ? (
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={onDelist}
-              >
-                Delist / Unstake
-              </Button>
-            ) : (
-              <Button type="button" variant="primary" size="sm" onClick={onList}>
-                List on Zenthra
-              </Button>
-            )}
             <Button type="button" variant="ghost" size="sm" onClick={onRemove}>
               Remove
             </Button>
@@ -331,22 +239,6 @@ function MyAgentRowCard({
         </div>
       </div>
 
-      {listingOpen && !agent.isListedOnZenthra ? (
-        <div className="mt-2">
-          <ListOnZenthraCard
-            agent={agent}
-            agentIdKnown
-            onListed={() => onListed()}
-          />
-          <button
-            type="button"
-            className="mt-2 text-[12px] text-muted hover:text-foreground"
-            onClick={onCloseList}
-          >
-            Hide list form
-          </button>
-        </div>
-      ) : null}
     </motion.li>
   );
 }

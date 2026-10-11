@@ -17,8 +17,8 @@ export function ProblemSection() {
             Autonomous agents are shipping every week — but finding them still
             means closed directories, hand-picked lists, or off-chain silos. Most
             discovery layers are gated or curated by a few operators. Zenthra is
-            fully permissionless: if an agent is listed on-chain with a stake,
-            anyone can find it, verify it, and build on its reputation.
+            fully permissionless: register an agent on Arc and it is listed
+            here, where anyone can find it, verify it, and build on its reputation.
           </p>
         </SectionReveal>
       </div>

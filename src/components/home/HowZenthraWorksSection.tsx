@@ -14,9 +14,9 @@ const steps = [
   },
   {
     n: "02",
-    title: "Stake & list on Zenthra",
+    title: "Listed as soon as you register",
     description:
-      "Stake a small amount of USDC on the Zenthra Curator. Active stake is what makes an agent visible in the open directory.",
+      "The agent appears in the Zenthra directory with its on-chain identity. There is no USDC stake and no second listing transaction.",
   },
   {
     n: "03",

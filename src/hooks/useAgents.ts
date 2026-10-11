@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AGENTS_UPDATED_EVENT } from "@/lib/localAgents";
+import { AGENTS_UPDATED_EVENT, mergeAgentCatalog } from "@/lib/localAgents";
 import { useCuratorListings } from "@/hooks/useCuratorListings";
 import {
   filterAgentsByCategory,
@@ -34,8 +34,8 @@ export interface UseAgentsResult {
 }
 
 /**
- * Discovery catalog: **only** agents listed on ZenthraCurator.
- * No mocks. No Identity Registry totalSupply.
+ * Discovery catalog: agents registered on Zenthra, plus any curator rows.
+ * Registration lists an agent directly. No stake and no mocks.
  */
 export function useAgents(options: UseAgentsOptions = {}): UseAgentsResult {
   const { limit, search = "", categorySlug } = options;
@@ -63,7 +63,9 @@ export function useAgents(options: UseAgentsOptions = {}): UseAgentsResult {
 
   const allListed = useMemo(() => {
     void tick;
-    return sortAgentsRecent(curatorAgents);
+    return sortAgentsRecent(
+      mergeAgentCatalog(curatorAgents, { includeMocks: false })
+    );
   }, [curatorAgents, tick]);
 
   const agents = useMemo(() => {

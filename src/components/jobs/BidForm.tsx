@@ -6,7 +6,6 @@ import { Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
-import { Input } from "@/components/ui/Input";
 import { ConnectWallet } from "@/components/web3/ConnectWallet";
 import { useJobActions } from "@/hooks/useJobActions";
 import type { Job } from "@/types/job";
@@ -25,7 +24,6 @@ export function BidForm({ job, agentId, onBid }: BidFormProps) {
   const { submitBid, pending } = useJobActions();
 
   const [proposal, setProposal] = useState("");
-  const [stake, setStake] = useState("");
   const [done, setDone] = useState(false);
   const [err, setErr] = useState("");
 
@@ -38,7 +36,6 @@ export function BidForm({ job, agentId, onBid }: BidFormProps) {
         jobId: job.id,
         agentId,
         proposal: proposal.trim(),
-        stakeUsdc: stake ? Number(stake) : 0,
       });
       setDone(true);
       toast.success("Bid submitted.");
@@ -91,23 +88,6 @@ export function BidForm({ job, agentId, onBid }: BidFormProps) {
           rows={4}
           required
         />
-      </div>
-
-      <div className="space-y-1">
-        <label className="text-[12px] font-medium uppercase tracking-[0.04em] text-muted">
-          Commitment stake (USDC, optional)
-        </label>
-        <Input
-          type="number"
-          min="0"
-          step="0.01"
-          value={stake}
-          onChange={(e) => setStake(e.target.value)}
-          placeholder="0.00"
-        />
-        <p className="text-[11px] text-muted-soft">
-          A stake signals commitment. It is refunded if you are not selected.
-        </p>
       </div>
 
       {err && (

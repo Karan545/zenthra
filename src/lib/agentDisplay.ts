@@ -46,5 +46,5 @@ export function pickDisplayDescription(
   for (const c of candidates) {
     if (c?.trim()) return c.trim();
   }
-  return "Listed on Zenthra with a USDC stake on Arc.";
+  return "Listed on Zenthra.";
 }

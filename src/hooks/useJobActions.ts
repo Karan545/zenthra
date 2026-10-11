@@ -31,7 +31,6 @@ export type SubmitBidInput = {
   jobId: number;
   agentId: number;
   proposal: string;
-  stakeUsdc: number; // 0 = no stake
 };
 
 // ─── selectWinner ───────────────────────────────────────────────────────────
@@ -126,10 +125,6 @@ export function useJobActions() {
     setPending(true);
     try {
       await ensureChain();
-      const stake = toUsdcUnits(input.stakeUsdc);
-      if (stake > BigInt(0)) {
-        await approve(zenthraJobBoardAddress as Address, stake);
-      }
       const hash = await writeContractAsync({
         address: zenthraJobBoardAddress as Address,
         abi: zenthraJobBoardAbi,
@@ -138,7 +133,7 @@ export function useJobActions() {
           BigInt(input.jobId),
           BigInt(input.agentId),
           input.proposal,
-          stake,
+          BigInt(0),
         ],
       });
       await waitTx(hash);

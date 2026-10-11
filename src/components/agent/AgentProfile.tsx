@@ -64,10 +64,9 @@ function resolveAgent(id: string, listed: Agent[]): Agent | null {
     owner: fromCurator?.owner || local?.owner || "",
     x402Endpoint: local?.x402Endpoint || fromCurator?.x402Endpoint,
     isOnChain: true,
-    isListedOnZenthra:
-      fromCurator?.isListedOnZenthra ?? local?.isListedOnZenthra ?? false,
+    isListedOnZenthra: Boolean(fromCurator || local),
     isFeatured: fromCurator?.isFeatured ?? local?.isFeatured,
-    stakeAmount: fromCurator?.stakeAmount ?? local?.stakeAmount,
+
     listedAt: fromCurator?.listedAt ?? local?.listedAt,
     txHash: local?.txHash,
     listTxHash: local?.listTxHash,

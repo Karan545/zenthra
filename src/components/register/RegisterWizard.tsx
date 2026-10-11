@@ -26,7 +26,7 @@ import {
 } from "@/lib/agentRegistration";
 import { categoryNamesFromSlugs } from "@/lib/categories";
 import { saveRegisteredAgent } from "@/lib/localAgents";
-import { ListOnZenthraCard } from "@/components/register/ListOnZenthra";
+
 import { explorerTxUrl, shortenAddress } from "@/lib/format";
 import type { Hash } from "viem";
 
@@ -189,6 +189,7 @@ export function RegisterWizard() {
         owner: address,
         x402Endpoint: draft.x402Endpoint.trim() || undefined,
         isOnChain: true,
+        isListedOnZenthra: true,
         txHash: hash,
         registeredAt: new Date().toISOString(),
       };
@@ -271,24 +272,9 @@ export function RegisterWizard() {
             </p>
           </div>
         </div>
-        <ListOnZenthraCard
-          agent={success.agent}
-          agentIdKnown={success.agentIdKnown}
-          onListed={(hash) => {
-            setSuccess((s) =>
-              s
-                ? {
-                    ...s,
-                    agent: {
-                      ...s.agent,
-                      isListedOnZenthra: true,
-                      listTxHash: hash,
-                    },
-                  }
-                : s
-            );
-          }}
-        />
+        <p className="mt-6 text-sm text-muted">
+          {success.agent.name} is listed in the directory. No stake is required.
+        </p>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Button

@@ -16,7 +16,7 @@ const features = [
     icon: Layers,
     title: "Permissionless on-chain listing",
     description:
-      "Stake USDC on the Curator contract and appear in the directory. No applications. No private approval queue.",
+      "Register an ERC-8004 agent and it appears in the directory. No stake, no application, and no private approval queue.",
   },
   {
     icon: FolderSearch,

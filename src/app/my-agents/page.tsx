@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 export const metadata: Metadata = {
   title: "My agents",
   description:
-    "Manage agents you own — list on Zenthra, remove one from this list, or delist to unstake USDC.",
+    "Agents you registered. Each one is listed in the directory, and you can remove it from this browser.",
 };
 
 export default function MyAgentsPage() {
@@ -15,7 +15,7 @@ export default function MyAgentsPage() {
       <PageHeader
         eyebrow="Portfolio"
         title="My agents"
-        description="Agents registered or listed by your connected wallet. Remove one from this list, or delist a listing to recover the USDC stake."
+        description="Agents registered by your connected wallet. Registration lists them in the directory."
         actions={
           <Button href="/register" variant="primary" size="md">
             Register agent

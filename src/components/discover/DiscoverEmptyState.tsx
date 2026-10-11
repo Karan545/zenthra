@@ -11,7 +11,7 @@ interface DiscoverEmptyStateProps {
 
 export function DiscoverEmptyState({
   title = "Be the first to list an agent",
-  description = "No agents are listed on Zenthra yet. Register an ERC-8004 identity, then stake 1 USDC to appear in the directory.",
+  description = "No agents are listed yet. Register an ERC-8004 identity and it appears in the directory.",
   showRegister = true,
 }: DiscoverEmptyStateProps) {
   return (

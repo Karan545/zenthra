@@ -114,9 +114,7 @@ export function AgentCard({ agent, index = 0 }: AgentCardProps) {
             {formatPrice(agent.pricePerTask)}
           </p>
         </div>
-        {agent.isListedOnZenthra ? (
-          <span className="text-[11px] text-muted-soft">On-chain listing</span>
-        ) : null}
+        <span className="text-[11px] text-muted-soft">Listed</span>
       </div>
     </Link>
   );

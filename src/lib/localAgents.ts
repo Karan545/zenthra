@@ -161,8 +161,7 @@ export function mergeAgentCatalog(
         ...prev,
         ...local,
         isOnChain: true,
-        // Curator is source of truth for listed flag when present later
-        isListedOnZenthra: local.isListedOnZenthra ?? false,
+        isListedOnZenthra: true,
         name: local.name || prev?.name || `Agent #${local.id}`,
         description:
           local.description ||
@@ -184,10 +183,9 @@ export function mergeAgentCatalog(
       description:
         prev?.description ||
         listed.description ||
-        "Listed on Zenthra with a USDC stake.",
+        "Listed on Zenthra.",
       image: prev?.image ?? listed.image,
       reputation: prev?.reputation ?? listed.reputation ?? 80,
-      stakeAmount: listed.stakeAmount ?? prev?.stakeAmount,
     });
   }
 
@@ -200,8 +198,7 @@ export function mergeAgentCatalog(
     const score = (x: Agent) =>
       (x.isFeatured ? 16 : 0) +
       (x.isListedOnZenthra ? 8 : 0) +
-      (x.isOnChain ? 2 : 0) +
-      (x.stakeAmount ? 1 : 0);
+      (x.isOnChain ? 2 : 0);
     const d = score(b) - score(a);
     if (d !== 0) return d;
     const ta = a.listedAt ?? 0;

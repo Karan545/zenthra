@@ -53,8 +53,8 @@ export function useMyAgents() {
       byId.set(a.id, {
         ...a,
         isOnChain: true,
-        isListedOnZenthra: a.isListedOnZenthra ?? false,
-        source: a.isListedOnZenthra ? "listed" : "registered",
+        isListedOnZenthra: true,
+        source: "listed",
       });
     }
 
@@ -81,11 +81,7 @@ export function useMyAgents() {
     });
   }, [address, listed, tick]);
 
-  const listedCount = rows.filter((r) => r.isListedOnZenthra).length;
-  const stakedUsdc = rows.reduce(
-    (sum, r) => sum + (r.isListedOnZenthra ? (r.stakeAmount ?? 1) : 0),
-    0
-  );
+  const listedCount = rows.length;
 
   const refetch = useCallback(async () => {
     setTick((n) => n + 1);
@@ -97,8 +93,7 @@ export function useMyAgents() {
     isConnected,
     agents: rows,
     listedCount,
-    registeredOnlyCount: rows.length - listedCount,
-    stakedUsdc,
+    registeredOnlyCount: 0,
     isLoading: isConnected ? isLoading : false,
     isError,
     error,

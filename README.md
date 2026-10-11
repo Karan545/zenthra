@@ -32,7 +32,7 @@ Config lives in `src/config/` (`chains.ts`, `wagmi.ts`, `contracts.ts`, `abis/`)
 
 Solidity lives in [`contracts/`](./contracts/) (Foundry).
 
-- **`ZenthraCurator`** — stake 1 USDC to list an ERC-8004 agent on Zenthra (`listAgent`, `delistAgent`, `featureAgent`, `getAllListedAgents`, `getAgent`).
+- **`ZenthraCurator`** — older listing contract. The site no longer stakes USDC to list. Registering an ERC-8004 agent lists it in the directory.
 
 See **[contracts/DEPLOY.md](./contracts/DEPLOY.md)** for beginner deploy steps on Arc Testnet.
 

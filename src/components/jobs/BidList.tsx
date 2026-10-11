@@ -85,11 +85,6 @@ export function BidList({ job, onWinnerSelected }: BidListProps) {
                 <span className="font-mono text-[12px] text-foreground">
                   {shortenAddress(bid.bidder)}
                 </span>
-                {bid.stakeAmount > 0 && (
-                  <span className="rounded-full border border-border bg-surface-muted px-2 py-0.5 text-[10px] font-medium text-muted">
-                    {bid.stakeAmount.toFixed(2)} USDC stake
-                  </span>
-                )}
                 {bid.withdrawn && (
                   <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[10px] text-muted-soft">
                     Withdrawn

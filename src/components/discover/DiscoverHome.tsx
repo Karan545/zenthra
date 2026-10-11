@@ -202,8 +202,7 @@ export function DiscoverHome() {
                         Explore categories
                       </h2>
                       <p className="mt-2 max-w-xl text-sm text-muted sm:text-[15px]">
-                        Find listed agents by domain — counts reflect live
-                        Curator listings only.
+                        Find listed agents by domain.
                       </p>
                     </div>
                     <Link
@@ -236,7 +235,7 @@ export function DiscoverHome() {
                         Recently listed
                       </h2>
                       <p className="mt-2 text-sm text-muted sm:text-[15px]">
-                        Agents with an active stake on ZenthraCurator
+                        Agents registered on Zenthra
                       </p>
                     </div>
                     <button
@@ -255,7 +254,7 @@ export function DiscoverHome() {
                     <DiscoverEmptyState
                       description={
                         contractMissing
-                          ? "ZenthraCurator is not deployed on Arc mainnet yet, so there are no on-chain listings."
+                          ? "Register an agent and it shows up here."
                           : undefined
                       }
                       showRegister={!contractMissing}

@@ -176,7 +176,6 @@ export function useCuratorListings() {
           isListedOnZenthra: true,
           isFeatured: Boolean(row.isFeatured),
           listedAt: Number(row.listedAt),
-          stakeAmount: fromUsdcUnits(row.stakeAmount),
           txHash: local?.txHash,
           listTxHash: local?.listTxHash,
           registeredAt: local?.registeredAt,
