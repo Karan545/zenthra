@@ -1,6 +1,27 @@
 /** Keep uploaded pictures small enough to store with the registration. */
 export const MAX_AGENT_IMAGE_DATA_URL = 14_000;
 
+/** Empty when the picture is missing, a compact upload, or an image link. */
+export function agentImageError(image: string): string | null {
+  const value = image.trim();
+  if (!value) return null;
+  if (value.startsWith("data:")) {
+    const allowed =
+      /^data:image\/(jpeg|png|webp|gif);base64,/.test(value) &&
+      value.length <= MAX_AGENT_IMAGE_DATA_URL;
+    return allowed ? null : "Upload a smaller PNG, JPEG, WebP, or GIF.";
+  }
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      return "Enter an image link or upload a picture.";
+    }
+    return null;
+  } catch {
+    return "Enter a valid image URL.";
+  }
+}
+
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 /**

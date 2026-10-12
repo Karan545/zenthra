@@ -84,14 +84,19 @@ export function buildAgentRegistrationFile(
   return file;
 }
 
-/** Encode registration JSON as a data: URI (no IPFS required). */
-export function toAgentDataUri(file: AgentRegistrationFile): string {
-  const json = JSON.stringify(file);
+/** Encode any registration object as a data: URI (no IPFS required). */
+export function jsonToAgentDataUri(value: unknown): string {
+  const json = JSON.stringify(value);
   const base64 =
     typeof btoa === "function"
       ? btoa(unescape(encodeURIComponent(json)))
       : Buffer.from(json, "utf8").toString("base64");
   return `data:application/json;base64,${base64}`;
+}
+
+/** Encode registration JSON as a data: URI (no IPFS required). */
+export function toAgentDataUri(file: AgentRegistrationFile): string {
+  return jsonToAgentDataUri(file);
 }
 
 /**

@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowUpRight, RefreshCw, Wallet } from "lucide-react";
+import { ArrowUpRight, Pencil, RefreshCw, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ConnectWallet } from "@/components/web3/ConnectWallet";
 import { AgentGridSkeleton } from "@/components/directory/AgentCardSkeleton";
+import { EditAgentDialog } from "@/components/agents/EditAgentDialog";
 import { RemoveAgentDialog } from "@/components/agents/RemoveAgentDialog";
 import { useMyAgents, type MyAgentRow } from "@/hooks/useMyAgents";
 import { shortenAddress } from "@/lib/format";
@@ -22,6 +23,7 @@ export function MyAgentsContent() {
   } = useMyAgents();
 
   const [removeTarget, setRemoveTarget] = useState<Agent | null>(null);
+  const [editTarget, setEditTarget] = useState<Agent | null>(null);
 
   if (!isConnected) {
     return (
@@ -106,11 +108,21 @@ export function MyAgentsContent() {
               key={agent.id}
               agent={agent}
               index={index}
+              onEdit={() => setEditTarget(agent)}
               onRemove={() => setRemoveTarget(agent)}
             />
           ))}
         </ul>
       )}
+
+      <EditAgentDialog
+        agent={editTarget}
+        open={Boolean(editTarget)}
+        onClose={() => setEditTarget(null)}
+        onSaved={() => {
+          void refetch();
+        }}
+      />
 
       <RemoveAgentDialog
         agent={removeTarget}
@@ -153,10 +165,12 @@ function SummaryTile({
 function MyAgentRowCard({
   agent,
   index,
+  onEdit,
   onRemove,
 }: {
   agent: MyAgentRow;
   index: number;
+  onEdit: () => void;
   onRemove: () => void;
 }) {
   const initials = agent.name
@@ -231,6 +245,10 @@ function MyAgentRowCard({
             <Button href={`/agent/${agent.id}`} variant="secondary" size="sm">
               Profile
               <ArrowUpRight size={14} strokeWidth={1.75} />
+            </Button>
+            <Button type="button" variant="secondary" size="sm" onClick={onEdit}>
+              <Pencil size={14} strokeWidth={1.75} />
+              Edit
             </Button>
             <Button type="button" variant="ghost" size="sm" onClick={onRemove}>
               Remove

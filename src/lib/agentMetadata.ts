@@ -56,6 +56,11 @@ function decodeBase64Utf8(b64: string): string {
   return "";
 }
 
+/** Decode a registration data URI. Returns null when the URI is not JSON. */
+export function parseAgentDataUri(uri: string): unknown {
+  return parseDataUriJson(uri);
+}
+
 function parseDataUriJson(uri: string): AgentMetadata | null {
   try {
     const trimmed = uri.trim();
