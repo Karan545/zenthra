@@ -13,7 +13,7 @@ interface ConnectWalletProps {
 
 /**
  * RainbowKit connect control styled for Zenthra's warm light UI.
- * Shows "Connect Wallet" when disconnected; shortened address when connected.
+ * Shows "Connect Wallet" when disconnected. When connected, shows the network switch and the shortened address.
  */
 export function ConnectWallet({
   className,
@@ -92,6 +92,27 @@ export function ConnectWallet({
                     fullWidth && "w-full flex-col sm:flex-row"
                   )}
                 >
+                  <button
+                    type="button"
+                    onClick={openChainModal}
+                    className={cn(
+                      "inline-flex items-center justify-center gap-1.5 font-medium tracking-[-0.01em] transition-colors duration-200",
+                      "bg-transparent text-muted border border-border hover:border-border-strong hover:text-foreground hover:bg-white",
+                      sizeClasses,
+                      fullWidth && "w-full sm:w-auto"
+                    )}
+                  >
+                    {chain.hasIcon && chain.iconUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        alt=""
+                        src={chain.iconUrl}
+                        className="h-3.5 w-3.5 rounded-full"
+                      />
+                    ) : null}
+                    <span className="max-w-[7rem] truncate">{chain.name}</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={openAccountModal}
