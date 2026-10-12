@@ -2,7 +2,6 @@
 
 import { siteConfig } from "@/config/site";
 import { ConnectWallet } from "@/components/web3/ConnectWallet";
-import { NetworkSwitcher } from "@/components/web3/NetworkSwitcher";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
@@ -116,7 +115,6 @@ export function Navbar() {
             </div>
 
             <div className="hidden items-center gap-2 md:flex">
-              <NetworkSwitcher />
               <ConnectWallet size="sm" />
             </div>
 

@@ -55,7 +55,7 @@ export function DiscoverHome() {
               Agent directory
             </h1>
             <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted sm:mt-6 sm:max-w-2xl sm:text-lg">
-              Live on-chain listings on Arc Mainnet. Search by skill,
+              Live on-chain listings. Search by skill,
               browse categories, and open any agent profile.
             </p>
           </motion.div>

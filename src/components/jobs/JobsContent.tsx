@@ -7,7 +7,6 @@ import { JobCard } from "@/components/jobs/JobCard";
 import { PostJobForm } from "@/components/jobs/PostJobForm";
 import { BidForm } from "@/components/jobs/BidForm";
 import { BidList } from "@/components/jobs/BidList";
-import { NetworkSwitcher } from "@/components/web3/NetworkSwitcher";
 import { useOpenJobs } from "@/hooks/useJobBoard";
 import { useAccount, useReadContract } from "wagmi";
 import { cn } from "@/lib/utils";
@@ -75,7 +74,6 @@ export function JobsContent() {
             </button>
           ))}
         </div>
-        <NetworkSwitcher />
       </div>
 
       <AnimatePresence mode="wait">
