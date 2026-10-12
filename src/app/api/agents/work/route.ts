@@ -92,7 +92,6 @@ export async function GET(request: NextRequest) {
   }
   return NextResponse.json({
     owner: loaded.owner,
-    endpoint: loaded.target.endpoint,
     pricePerTask: loaded.target.pricePerTask,
     scanAddress: loaded.target.scanAddress,
   });
@@ -165,7 +164,6 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({
       owner,
-      endpoint: target.endpoint,
       result: workResult(parsed, text),
     });
   } catch {

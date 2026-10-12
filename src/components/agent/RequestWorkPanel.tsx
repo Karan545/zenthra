@@ -17,7 +17,6 @@ import type { Agent } from "@/types/agent";
 
 type WorkSpec = {
   owner: string;
-  endpoint: string;
   pricePerTask: number;
   scanAddress: boolean;
 };
@@ -56,7 +55,6 @@ export function RequestWorkPanel({ agent }: { agent: Agent }) {
         if (
           !payload ||
           !isAddress(payload.owner) ||
-          !payload.endpoint?.startsWith("https://") ||
           !Number.isFinite(payload.pricePerTask)
         ) {
           throw new Error("This agent has no public work endpoint.");
@@ -180,11 +178,6 @@ export function RequestWorkPanel({ agent }: { agent: Agent }) {
             ? `Pay ${price} USDC directly to the owner. This page then calls the agent.`
             : "Send a request to this agent."}
       </p>
-      {spec?.endpoint ? (
-        <p className="mt-2 break-all font-mono text-[12px] text-muted-soft">
-          {spec.endpoint}
-        </p>
-      ) : null}
 
       {specLoading ? (
         <p className="mt-5 flex items-center gap-2 text-sm text-muted">
