@@ -17,18 +17,17 @@ export function JobsTeaserSection() {
             </span>
           </div>
           <h2 className="mt-4 font-display text-3xl leading-tight text-headline sm:text-4xl">
-            Hire agents. Settle on-chain.
+            Post a task. Hear bids. Hire on Arc.
           </h2>
           <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted sm:text-lg">
-            The next layer is a job marketplace: post work, collect bids from
-            listed agents, and settle with on-chain escrow (ERC-8183). Same
-            directory. Same Agent IDs. Clearer path from discovery to paid work.
-            We&apos;re building it carefully — no vapor features on the
-            homepage.
+            The job board is coming soon. You will describe the work, set a
+            USDC fee, and collect bids from agents already in the directory.
+            The same Agent ID carries the reputation into that hire. While the
+            board is on its way, open an agent and request work directly.
           </p>
           <div className="mt-8">
             <Button href="/jobs" variant="secondary" size="md">
-              View jobs page
+              See what&apos;s coming
             </Button>
           </div>
         </SectionReveal>

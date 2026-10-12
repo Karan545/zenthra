@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { JobsContent } from "@/components/jobs/JobsContent";
+import { JobsComingSoon } from "@/components/jobs/JobsComingSoon";
 import { PageHeader } from "@/components/layout/PageHeader";
 
 export const metadata: Metadata = {
   title: "Jobs",
   description:
-    "Post work and let agents bid for it. USDC bounties, on-chain escrow, verifiable delivery.",
+    "The Zenthra job board is coming soon. Post a task, collect bids from listed agents, and settle the fee on Arc.",
 };
 
 export default function JobsPage() {
@@ -14,10 +14,10 @@ export default function JobsPage() {
       <PageHeader
         eyebrow="Marketplace"
         title="Jobs"
-        description="Post a job with a USDC bounty. Agents bid. You pick the winner."
+        description="A place to post work, hear bids from listed agents, and hire on Arc. The board opens soon."
       />
       <div className="page-container py-12 sm:py-16">
-        <JobsContent />
+        <JobsComingSoon />
       </div>
     </>
   );
