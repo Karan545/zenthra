@@ -9,6 +9,7 @@ import { FeedbackSection } from "@/components/agent/FeedbackSection";
 import { RequestWorkPanel } from "@/components/agent/RequestWorkPanel";
 
 import { useCuratorListings } from "@/hooks/useCuratorListings";
+import { usePublicAgents } from "@/hooks/usePublicAgents";
 import {
   AGENTS_UPDATED_EVENT,
   getRegisteredAgents,
@@ -29,18 +30,28 @@ function displayName(agent: Pick<Agent, "id" | "name">): string {
   return pickDisplayName(agent.id, agent.name);
 }
 
-function resolveAgent(id: string, listed: Agent[]): Agent | null {
+function resolveAgent(
+  id: string,
+  listed: Agent[],
+  published: Agent[]
+): Agent | null {
   const numeric = Number(id);
   if (!Number.isFinite(numeric)) return null;
 
   const local = getRegisteredAgents().find((a) => a.id === numeric);
   const fromCurator = listed.find((a) => a.id === numeric);
+  const fromPublic = published.find((a) => a.id === numeric);
 
-  if (!local && !fromCurator) return null;
+  if (!local && !fromCurator && !fromPublic) return null;
 
-  // Prefer Identity Registry / curator-enriched fields (works for all users)
-  const name = pickDisplayName(numeric, fromCurator?.name, local?.name);
+  const name = pickDisplayName(
+    numeric,
+    fromPublic?.name,
+    fromCurator?.name,
+    local?.name
+  );
   const description = pickDisplayDescription(
+    fromPublic?.description,
     fromCurator?.description,
     local?.description
   );
@@ -48,27 +59,38 @@ function resolveAgent(id: string, listed: Agent[]): Agent | null {
   return {
     ...local,
     ...fromCurator,
+    ...fromPublic,
     id: numeric,
     name,
     description,
-    image: fromCurator?.image || local?.image,
+    image: fromPublic?.image || fromCurator?.image || local?.image,
     capabilities:
-      fromCurator?.capabilities?.length
-        ? fromCurator.capabilities
-        : local?.capabilities ?? [],
+      fromPublic?.capabilities?.length
+        ? fromPublic.capabilities
+        : fromCurator?.capabilities?.length
+          ? fromCurator.capabilities
+          : local?.capabilities ?? [],
     categories:
-      local?.categories?.length
-        ? local.categories
-        : fromCurator?.categories,
-    reputation: fromCurator?.reputation ?? local?.reputation ?? 0,
-    pricePerTask: fromCurator?.pricePerTask ?? local?.pricePerTask ?? 0,
-    owner: fromCurator?.owner || local?.owner || "",
-    x402Endpoint: local?.x402Endpoint || fromCurator?.x402Endpoint,
+      fromPublic?.categories?.length
+        ? fromPublic.categories
+        : local?.categories?.length
+          ? local.categories
+          : fromCurator?.categories,
+    reputation: fromCurator?.reputation ?? local?.reputation ?? fromPublic?.reputation ?? 0,
+    pricePerTask:
+      fromPublic?.pricePerTask ||
+      fromCurator?.pricePerTask ||
+      local?.pricePerTask ||
+      0,
+    owner: fromPublic?.owner || fromCurator?.owner || local?.owner || "",
+    x402Endpoint:
+      local?.x402Endpoint?.startsWith("http")
+        ? local.x402Endpoint
+        : fromPublic?.x402Endpoint || fromCurator?.x402Endpoint || local?.x402Endpoint,
     isOnChain: true,
-    isListedOnZenthra: Boolean(fromCurator || local),
+    isListedOnZenthra: Boolean(fromPublic || fromCurator || local),
     isFeatured: fromCurator?.isFeatured ?? local?.isFeatured,
-
-    listedAt: fromCurator?.listedAt ?? local?.listedAt,
+    listedAt: fromPublic?.listedAt ?? fromCurator?.listedAt ?? local?.listedAt,
     txHash: local?.txHash,
     listTxHash: local?.listTxHash,
   };
@@ -80,6 +102,11 @@ export function AgentProfile({ id }: AgentProfileProps) {
     isLoading: listingsLoading,
     refetch,
   } = useCuratorListings();
+  const {
+    agents: published,
+    isLoading: publicLoading,
+    refetch: refetchPublic,
+  } = usePublicAgents();
   const [tick, setTick] = useState(0);
   const [, setJobsTick] = useState(0);
 
@@ -91,10 +118,10 @@ export function AgentProfile({ id }: AgentProfileProps) {
 
   const agent = useMemo(() => {
     void tick;
-    return resolveAgent(id, listed);
-  }, [id, listed, tick]);
+    return resolveAgent(id, listed, published);
+  }, [id, listed, published, tick]);
 
-  if (listingsLoading && !agent) {
+  if ((listingsLoading || publicLoading) && !agent) {
     return (
       <div className="page-container py-16">
         <div className="card-surface h-48 animate-pulse rounded-2xl bg-[#ebe4d9]/50" />
@@ -125,7 +152,10 @@ export function AgentProfile({ id }: AgentProfileProps) {
               type="button"
               variant="secondary"
               size="md"
-              onClick={() => void refetch()}
+              onClick={() => {
+                void refetch();
+                void refetchPublic();
+              }}
             >
               Try again
             </Button>

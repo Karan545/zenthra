@@ -17,8 +17,8 @@ interface AgentCardProps {
 
 function formatPrice(pricePerTask: number): string {
   if (!Number.isFinite(pricePerTask)) return "—";
-  if (Number.isInteger(pricePerTask)) return `${pricePerTask} USDC`;
-  return `${pricePerTask.toFixed(2)} USDC`;
+  const rounded = Math.round(pricePerTask * 1000) / 1000;
+  return `${rounded} USDC`;
 }
 
 function displayName(agent: Agent): string {

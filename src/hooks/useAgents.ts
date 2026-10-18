@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AGENTS_UPDATED_EVENT, mergeAgentCatalog } from "@/lib/localAgents";
 import { useCuratorListings } from "@/hooks/useCuratorListings";
+import { usePublicAgents } from "@/hooks/usePublicAgents";
 import {
   filterAgentsByCategory,
   filterAgentsBySearch,
@@ -33,6 +34,32 @@ export interface UseAgentsResult {
   refetch: () => void;
 }
 
+function mergePublicAgents(published: Agent[], local: Agent[]): Agent[] {
+  const byId = new Map<number, Agent>();
+  for (const agent of published) byId.set(agent.id, agent);
+  for (const agent of local) {
+    const chain = byId.get(agent.id);
+    if (!chain) {
+      byId.set(agent.id, agent);
+      continue;
+    }
+    byId.set(agent.id, {
+      ...agent,
+      ...chain,
+      image: chain.image || agent.image,
+      capabilities:
+        chain.capabilities.length > 0 ? chain.capabilities : agent.capabilities,
+      categories: chain.categories?.length ? chain.categories : agent.categories,
+      x402Endpoint: agent.x402Endpoint?.startsWith("http")
+        ? agent.x402Endpoint
+        : chain.x402Endpoint || agent.x402Endpoint,
+      owner: chain.owner || agent.owner,
+      pricePerTask: chain.pricePerTask > 0 ? chain.pricePerTask : agent.pricePerTask,
+    });
+  }
+  return Array.from(byId.values());
+}
+
 /**
  * Discovery catalog: agents registered on Zenthra, plus any curator rows.
  * Registration lists an agent directly. No stake and no mocks.
@@ -49,12 +76,16 @@ export function useAgents(options: UseAgentsOptions = {}): UseAgentsResult {
     contractMissing,
     refetch: refetchCurator,
   } = useCuratorListings();
+  const {
+    agents: publicAgents,
+    isLoading: publicLoading,
+    refetch: refetchPublic,
+  } = usePublicAgents();
 
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
     const onUpdate = () => setTick((n) => n + 1);
-    // Only refresh when local registrations change — not on every window focus
     window.addEventListener(AGENTS_UPDATED_EVENT, onUpdate);
     return () => {
       window.removeEventListener(AGENTS_UPDATED_EVENT, onUpdate);
@@ -63,10 +94,9 @@ export function useAgents(options: UseAgentsOptions = {}): UseAgentsResult {
 
   const allListed = useMemo(() => {
     void tick;
-    return sortAgentsRecent(
-      mergeAgentCatalog(curatorAgents, { includeMocks: false })
-    );
-  }, [curatorAgents, tick]);
+    const local = mergeAgentCatalog(curatorAgents, { includeMocks: false });
+    return sortAgentsRecent(mergePublicAgents(publicAgents, local));
+  }, [curatorAgents, publicAgents, tick]);
 
   const agents = useMemo(() => {
     let list = allListed;
@@ -85,13 +115,14 @@ export function useAgents(options: UseAgentsOptions = {}): UseAgentsResult {
   const refetch = useCallback(() => {
     setTick((n) => n + 1);
     void refetchCurator();
-  }, [refetchCurator]);
+    void refetchPublic();
+  }, [refetchCurator, refetchPublic]);
 
   return {
     agents,
     allListed,
-    listedCount: listedCount || allListed.length,
-    isLoading: curatorLoading,
+    listedCount: Math.max(listedCount, allListed.length),
+    isLoading: publicLoading || (curatorLoading && publicAgents.length === 0),
     isError: curatorError,
     error: curatorErr,
     contractMissing,
