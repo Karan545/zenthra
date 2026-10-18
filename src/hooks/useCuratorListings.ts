@@ -3,7 +3,8 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useReadContract } from "wagmi";
-import { zenthraCuratorAbi, type CuratorListing } from "@/config/abis";
+import { zenthraCuratorV2Abi } from "@/config/abis";
+import type { CuratorListing } from "@/config/abis";
 import {
   fromUsdcUnits,
   isDeployedAddress,
@@ -51,7 +52,7 @@ function toNumberId(value: unknown): number | null {
 export function useCuratorListings() {
   const idsQuery = useReadContract({
     address: zenthraCuratorAddress,
-    abi: zenthraCuratorAbi,
+    abi: zenthraCuratorV2Abi,
     functionName: "getAllListedAgents",
     chainId: arcTestnet.id,
     query: {
@@ -90,7 +91,7 @@ export function useCuratorListings() {
       // 1) Curator listing rows
       const rows = (await client.readContract({
         address: zenthraCuratorAddress,
-        abi: zenthraCuratorAbi,
+        abi: zenthraCuratorV2Abi,
         functionName: "getAgents",
         args: [agentIds],
       })) as CuratorListing[];
@@ -174,7 +175,7 @@ export function useCuratorListings() {
           x402Endpoint: row.x402Endpoint || local?.x402Endpoint || undefined,
           isOnChain: true,
           isListedOnZenthra: true,
-          isFeatured: Boolean(row.isFeatured),
+          isFeatured: Boolean(row.isFeaturedByOwner) || (Number(row.featuredUntil) * 1000 > Date.now()),
           listedAt: Number(row.listedAt),
           txHash: local?.txHash,
           listTxHash: local?.listTxHash,

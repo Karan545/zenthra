@@ -108,7 +108,7 @@ export function AgentProfile({ id }: AgentProfileProps) {
     refetch: refetchPublic,
   } = usePublicAgents();
   const [tick, setTick] = useState(0);
-  const [, setJobsTick] = useState(0);
+  // jobsTick removed — polling replaced by query invalidation
 
   useEffect(() => {
     const bump = () => setTick((n) => n + 1);

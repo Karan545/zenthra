@@ -134,6 +134,7 @@ export const zenthraCuratorAbi = [
   },
 ] as const;
 
+/** V2 AgentListing struct — matches ZenthraCuratorV2 on-chain fields. */
 export type CuratorListing = {
   agentId: bigint;
   owner: `0x${string}`;
@@ -141,7 +142,11 @@ export type CuratorListing = {
   capabilities: readonly string[];
   pricePerTask: bigint;
   listedAt: bigint;
+  featuredUntil: bigint;
   isActive: boolean;
-  isFeatured: boolean;
-  stakeAmount: bigint;
+  isFeaturedByOwner: boolean;
+  bondAmount: bigint;
+  // Legacy V1 aliases kept for backward compat (always undefined in V2 responses)
+  isFeatured?: boolean;
+  stakeAmount?: bigint;
 };

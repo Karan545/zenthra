@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from "wagmi";
-import { getAddress, isAddress, type Address, type Hash } from "viem";
+import { getAddress, isAddress, type Hash } from "viem";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
