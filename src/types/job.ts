@@ -1,34 +1,42 @@
 import type { Address } from "viem";
-import type { OnChainJob, OnChainBid } from "@/config/abis";
 
-export type { OnChainJob, OnChainBid };
-
-/** On-chain job status enum */
+/** JobEscrow on-chain status enum */
 export const JOB_STATUS = {
-  Open: 0,
-  WinnerSelected: 1,
-  Accepted: 2,
-  Completed: 3,
-  Cancelled: 4,
-  Disputed: 5,
-  Resolved: 6,
+  Open:        0,
+  InProgress:  1,
+  Submitted:   2,
+  Completed:   3,
+  Rejected:    4,
+  Cancelled:   5,
 } as const;
 export type JobStatus = (typeof JOB_STATUS)[keyof typeof JOB_STATUS];
 
-/** UI-layer job (normalised from chain for display) */
+// Legacy aliases so existing components don't break
+export const JOB_STATUS_LABELS: Record<number, string> = {
+  0: "Open",
+  1: "In Progress",
+  2: "Submitted",
+  3: "Completed",
+  4: "Rejected",
+  5: "Cancelled",
+};
+
+/** UI-layer job (normalised from JobEscrow for display) */
 export type Job = {
   id: number;
   title: string;
   description: string;
-  bounty: number; // USDC display (6-dec normalised)
+  bounty: number;         // USDC display (6-dec normalised)
   currency: string;
   requiredCapabilities: string[];
-  deadline: string; // ISO date string or "No deadline"
+  deadline: string;       // "No deadline" for JobEscrow
   status: number;
   poster: Address;
-  winner: Address;
+  winner: Address;        // acceptedBidder
+  acceptedBidder: Address;
+  deliverable: string;
   bidsCount: number;
-  postedAt: number; // unix seconds
+  postedAt: number;       // unix seconds
 };
 
 /** Form draft before on-chain posting */
@@ -37,7 +45,7 @@ export type JobDraft = {
   description: string;
   bounty: string;
   requiredCapabilities: string[];
-  deadline: string; // date input value
+  deadline: string;
 };
 
 /** A normalised bid for display */
@@ -45,8 +53,12 @@ export type Bid = {
   agentId: bigint;
   bidder: Address;
   proposal: string;
-  stakeAmount: number; // USDC display
+  stakeAmount: number;    // bid amount in USDC display
   submittedAt: number;
   withdrawn: boolean;
   index: number;
 };
+
+// Legacy compat types
+export type OnChainJob = Job;
+export type OnChainBid = Bid;

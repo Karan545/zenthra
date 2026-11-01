@@ -2,30 +2,32 @@
 
 import { useCallback, useState } from "react";
 import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from "wagmi";
-import { parseUnits, type Address } from "viem";
-import { zenthraJobBoardAbi, erc20Abi } from "@/config/abis";
-import { zenthraJobBoardAddress, usdcAddress } from "@/config/contracts";
+import { parseUnits } from "viem";
+import { jobEscrowAbi } from "@/config/abis/jobEscrow";
+import { erc20Abi } from "@/config/abis";
+import { usdcAddress } from "@/config/contracts";
 import { arcMainnet } from "@/config/chains";
-import { requireContractCode } from "@/lib/requireContractCode";
 import { formatWalletError } from "@/lib/walletErrors";
 import { getArcPublicClient } from "@/lib/arcClient";
+
+const JOB_ESCROW_ADDRESS = (
+  process.env.NEXT_PUBLIC_JOB_ESCROW_ADDRESS ?? ""
+) as `0x${string}`;
 
 function toUsdcUnits(usdc: number): bigint {
   return parseUnits(usdc.toFixed(6), 6);
 }
 
-// ─── postJob ────────────────────────────────────────────────────────────────
+// ─── Input types ─────────────────────────────────────────────────────────────
 
 export type PostJobInput = {
   title: string;
   description: string;
   requiredCapabilities: string[];
   bountyUsdc: number;
-  deadlineUnix?: number; // 0 = no deadline
-  maxBids?: number;      // 0 = use contract default
+  deadlineUnix?: number;
+  maxBids?: number;
 };
-
-// ─── submitBid ──────────────────────────────────────────────────────────────
 
 export type SubmitBidInput = {
   jobId: number;
@@ -33,180 +35,210 @@ export type SubmitBidInput = {
   proposal: string;
 };
 
-// ─── selectWinner ───────────────────────────────────────────────────────────
-
 export type SelectWinnerInput = {
   jobId: number;
   bidIndex: number;
 };
 
-// ─── confirmDelivery ────────────────────────────────────────────────────────
-
 export type ConfirmDeliveryInput = { jobId: number };
 
 /**
- * Write actions for ZenthraJobBoard on Arc Mainnet.
- * All USDC flows use safeTransferFrom — approve is called automatically before
- * any action that requires it.
+ * Write actions for JobEscrow on Arc Mainnet.
+ * Mirrors the ZenthraJobBoard API so all existing UI components work unchanged.
  */
 export function useJobActions() {
   const { address, chainId } = useAccount();
   const { switchChainAsync } = useSwitchChain();
   const publicClientFromWagmi = usePublicClient({ chainId: arcMainnet.id });
-  const { writeContractAsync, isPending, reset } = useWriteContract();
+  const { writeContractAsync } = useWriteContract();
   const [pending, setPending] = useState(false);
 
   const client = () => publicClientFromWagmi ?? getArcPublicClient();
 
   const ensureChain = useCallback(async () => {
-    if (!address) throw new Error("Connect your wallet on Arc Mainnet.");
     if (chainId !== arcMainnet.id) {
-      try {
-        await switchChainAsync({ chainId: arcMainnet.id as 5042 });
-      } catch (e) {
-        throw new Error(formatWalletError(e));
-      }
+      try { await switchChainAsync({ chainId: arcMainnet.id }); }
+      catch (e) { throw new Error(formatWalletError(e)); }
     }
-  }, [address, chainId, switchChainAsync]);
+  }, [chainId, switchChainAsync]);
 
-  const waitTx = useCallback(async (hash: `0x${string}`) => {
-    const c = client();
-    if (!c) throw new Error("Could not reach Arc RPC.");
-    const receipt = await c.waitForTransactionReceipt({ hash });
-    if (receipt.status === "reverted") throw new Error("Transaction reverted.");
-    return receipt;
-  }, [publicClientFromWagmi]);
-
-  const approve = useCallback(async (spender: Address, amount: bigint) => {
-    if (amount === BigInt(0)) return;
-    const c = client();
-    if (!c) throw new Error("Could not reach Arc RPC.");
-    await requireContractCode(c, spender, "Zenthra contract");
-    const hash = await writeContractAsync({
-      address: usdcAddress as Address,
-      abi: erc20Abi,
-      functionName: "approve",
-      args: [spender, amount],
-    });
-    await waitTx(hash);
-  }, [writeContractAsync, waitTx]);
-
-  // ── postJob ──────────────────────────────────────────────────────────────
-
+  // ─── postJob (createJob on JobEscrow) ──────────────────────────────────────
   const postJob = useCallback(async (input: PostJobInput) => {
+    if (!address) throw new Error("Connect your wallet first.");
+    if (!JOB_ESCROW_ADDRESS) throw new Error("JobEscrow contract not configured.");
+    await ensureChain();
     setPending(true);
     try {
-      await ensureChain();
-      const bounty = toUsdcUnits(input.bountyUsdc);
-      await approve(zenthraJobBoardAddress as Address, bounty);
-      const hash = await writeContractAsync({
-        address: zenthraJobBoardAddress as Address,
-        abi: zenthraJobBoardAbi,
-        functionName: "postJob",
-        args: [
-          input.title,
-          input.description,
-          input.requiredCapabilities,
-          bounty,
-          BigInt(input.deadlineUnix ?? 0),
-          input.maxBids ?? 0,
-        ],
+      const budget = toUsdcUnits(input.bountyUsdc);
+
+      // 1) Approve USDC
+      const allowance = await client().readContract({
+        address: usdcAddress as `0x${string}`,
+        abi: erc20Abi,
+        functionName: "allowance",
+        args: [address, JOB_ESCROW_ADDRESS],
+      }) as bigint;
+
+      if (allowance < budget) {
+        const approveTx = await writeContractAsync({
+          address: usdcAddress as `0x${string}`,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [JOB_ESCROW_ADDRESS, budget],
+        });
+        await client().waitForTransactionReceipt({ hash: approveTx });
+      }
+
+      // 2) createJob — combine title + description as the description field
+      const description = input.title
+        ? `${input.title}\n\n${input.description}`
+        : input.description;
+
+      const tx = await writeContractAsync({
+        address: JOB_ESCROW_ADDRESS,
+        abi: jobEscrowAbi,
+        functionName: "createJob",
+        args: [description.trim(), budget],
       });
-      await waitTx(hash);
-      return hash;
+      await client().waitForTransactionReceipt({ hash: tx });
+    } catch (e) {
+      throw new Error(formatWalletError(e));
     } finally {
       setPending(false);
     }
-  }, [ensureChain, approve, writeContractAsync, waitTx]);
+  }, [address, ensureChain, writeContractAsync]);
 
-  // ── submitBid ────────────────────────────────────────────────────────────
-
+  // ─── submitBid (bid on JobEscrow) ──────────────────────────────────────────
   const submitBid = useCallback(async (input: SubmitBidInput) => {
+    if (!address) throw new Error("Connect your wallet first.");
+    await ensureChain();
     setPending(true);
     try {
-      await ensureChain();
-      const hash = await writeContractAsync({
-        address: zenthraJobBoardAddress as Address,
-        abi: zenthraJobBoardAbi,
-        functionName: "submitBid",
-        args: [
-          BigInt(input.jobId),
-          BigInt(input.agentId),
-          input.proposal,
-          BigInt(0),
-        ],
+      // Bid amount = 0 (informational only, no stake in JobEscrow)
+      const tx = await writeContractAsync({
+        address: JOB_ESCROW_ADDRESS,
+        abi: jobEscrowAbi,
+        functionName: "bid",
+        args: [BigInt(input.jobId), BigInt(1), input.proposal],
       });
-      await waitTx(hash);
-      return hash;
+      await client().waitForTransactionReceipt({ hash: tx });
+    } catch (e) {
+      throw new Error(formatWalletError(e));
     } finally {
       setPending(false);
     }
-  }, [ensureChain, approve, writeContractAsync, waitTx]);
+  }, [address, ensureChain, writeContractAsync]);
 
-  // ── selectWinner ─────────────────────────────────────────────────────────
-
+  // ─── selectWinner (acceptBid on JobEscrow) ─────────────────────────────────
   const selectWinner = useCallback(async (input: SelectWinnerInput) => {
+    if (!address) throw new Error("Connect your wallet first.");
+    await ensureChain();
     setPending(true);
     try {
-      await ensureChain();
-      const hash = await writeContractAsync({
-        address: zenthraJobBoardAddress as Address,
-        abi: zenthraJobBoardAbi,
-        functionName: "selectWinner",
+      const tx = await writeContractAsync({
+        address: JOB_ESCROW_ADDRESS,
+        abi: jobEscrowAbi,
+        functionName: "acceptBid",
         args: [BigInt(input.jobId), BigInt(input.bidIndex)],
       });
-      await waitTx(hash);
-      return hash;
+      await client().waitForTransactionReceipt({ hash: tx });
+    } catch (e) {
+      throw new Error(formatWalletError(e));
     } finally {
       setPending(false);
     }
-  }, [ensureChain, writeContractAsync, waitTx]);
+  }, [address, ensureChain, writeContractAsync]);
 
-  // ── confirmDelivery ──────────────────────────────────────────────────────
-
-  const confirmDelivery = useCallback(async (input: ConfirmDeliveryInput) => {
+  // ─── submitWork ────────────────────────────────────────────────────────────
+  const submitWork = useCallback(async ({ jobId, deliverable }: { jobId: number; deliverable: string }) => {
+    if (!address) throw new Error("Connect your wallet first.");
+    await ensureChain();
     setPending(true);
     try {
-      await ensureChain();
-      const hash = await writeContractAsync({
-        address: zenthraJobBoardAddress as Address,
-        abi: zenthraJobBoardAbi,
-        functionName: "confirmDelivery",
-        args: [BigInt(input.jobId)],
+      const tx = await writeContractAsync({
+        address: JOB_ESCROW_ADDRESS,
+        abi: jobEscrowAbi,
+        functionName: "submitWork",
+        args: [BigInt(jobId), deliverable],
       });
-      await waitTx(hash);
-      return hash;
+      await client().waitForTransactionReceipt({ hash: tx });
+    } catch (e) {
+      throw new Error(formatWalletError(e));
     } finally {
       setPending(false);
     }
-  }, [ensureChain, writeContractAsync, waitTx]);
+  }, [address, ensureChain, writeContractAsync]);
 
-  // ── claimPayment ─────────────────────────────────────────────────────────
-
-  const claimPayment = useCallback(async () => {
+  // ─── approveJob ────────────────────────────────────────────────────────────
+  const approveJob = useCallback(async ({ jobId }: { jobId: number }) => {
+    if (!address) throw new Error("Connect your wallet first.");
+    await ensureChain();
     setPending(true);
     try {
-      await ensureChain();
-      const hash = await writeContractAsync({
-        address: zenthraJobBoardAddress as Address,
-        abi: zenthraJobBoardAbi,
-        functionName: "claimPayment",
-        args: [],
+      const tx = await writeContractAsync({
+        address: JOB_ESCROW_ADDRESS,
+        abi: jobEscrowAbi,
+        functionName: "approve",
+        args: [BigInt(jobId)],
       });
-      await waitTx(hash);
-      return hash;
+      await client().waitForTransactionReceipt({ hash: tx });
+    } catch (e) {
+      throw new Error(formatWalletError(e));
     } finally {
       setPending(false);
     }
-  }, [ensureChain, writeContractAsync, waitTx]);
+  }, [address, ensureChain, writeContractAsync]);
+
+  // ─── rejectJob ─────────────────────────────────────────────────────────────
+  const rejectJob = useCallback(async ({ jobId }: { jobId: number }) => {
+    if (!address) throw new Error("Connect your wallet first.");
+    await ensureChain();
+    setPending(true);
+    try {
+      const tx = await writeContractAsync({
+        address: JOB_ESCROW_ADDRESS,
+        abi: jobEscrowAbi,
+        functionName: "reject",
+        args: [BigInt(jobId)],
+      });
+      await client().waitForTransactionReceipt({ hash: tx });
+    } catch (e) {
+      throw new Error(formatWalletError(e));
+    } finally {
+      setPending(false);
+    }
+  }, [address, ensureChain, writeContractAsync]);
+
+  // ─── cancelJob ─────────────────────────────────────────────────────────────
+  const cancelJob = useCallback(async ({ jobId }: { jobId: number }) => {
+    if (!address) throw new Error("Connect your wallet first.");
+    await ensureChain();
+    setPending(true);
+    try {
+      const tx = await writeContractAsync({
+        address: JOB_ESCROW_ADDRESS,
+        abi: jobEscrowAbi,
+        functionName: "cancelJob",
+        args: [BigInt(jobId)],
+      });
+      await client().waitForTransactionReceipt({ hash: tx });
+    } catch (e) {
+      throw new Error(formatWalletError(e));
+    } finally {
+      setPending(false);
+    }
+  }, [address, ensureChain, writeContractAsync]);
+
+  // Legacy aliases kept for compat with existing components
+  const acceptJob = submitWork;
+  const confirmDelivery = approveJob;
+  const disputeJob = rejectJob;
+  const claimPayment = async () => { /* no-op — JobEscrow auto-transfers on approve */ };
 
   return {
-    postJob,
-    submitBid,
-    selectWinner,
-    confirmDelivery,
-    claimPayment,
-    pending: pending || isPending,
-    reset,
+    postJob, submitBid, selectWinner,
+    submitWork, approveJob, rejectJob, cancelJob,
+    acceptJob, confirmDelivery, disputeJob, claimPayment,
+    pending,
   };
 }

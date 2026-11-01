@@ -315,12 +315,11 @@ export type JobStatusValue = (typeof JOB_STATUS)[keyof typeof JOB_STATUS];
 export function jobStatusLabel(status: number): string {
   const labels: Record<number, string> = {
     0: "Open",
-    1: "Winner Selected",
-    2: "Accepted",
+    1: "In Progress",
+    2: "Submitted",
     3: "Completed",
-    4: "Cancelled",
-    5: "Disputed",
-    6: "Resolved",
+    4: "Rejected",
+    5: "Cancelled",
   };
   return labels[status] ?? "Unknown";
 }

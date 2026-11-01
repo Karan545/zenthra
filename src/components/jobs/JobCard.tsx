@@ -18,12 +18,11 @@ interface JobCardProps {
 
 const STATUS_STYLES: Record<number, string> = {
   0: "bg-[#e8f4ec] text-[#1a7a45] border-[#c4e4cc]",   // Open — green
-  1: "bg-[#f0e8f4] text-[#6a3c9a] border-[#dcc4ec]",   // Winner Selected — purple
-  2: "bg-[#e8eef8] text-[#2256a0] border-[#c4d4ec]",   // Accepted — blue
+  1: "bg-[#f0e8f4] text-[#6a3c9a] border-[#dcc4ec]",   // InProgress — purple
+  2: "bg-[#e8eef8] text-[#2256a0] border-[#c4d4ec]",   // Submitted — blue
   3: "bg-[#f0ebe3] text-headline-deep border-border",    // Completed — warm
-  4: "bg-[#f4e8e8] text-danger border-[#ecc4c4]",       // Cancelled — red
-  5: "bg-[#f8f0e0] text-warning border-[#ecdcb4]",      // Disputed — amber
-  6: "bg-surface-muted text-muted border-border",        // Resolved — grey
+  4: "bg-[#f4e8e8] text-danger border-[#ecc4c4]",       // Rejected — red
+  5: "bg-surface-muted text-muted border-border",        // Cancelled — grey
 };
 
 export function JobCard({ job, index = 0, onBid, onViewBids, isPoster = false }: JobCardProps) {
