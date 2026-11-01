@@ -109,6 +109,12 @@ contract JobEscrow is ReentrancyGuard {
         uint256 amount
     );
 
+    event JobUpdated(
+        uint256 indexed jobId,
+        address indexed poster,
+        string  newDescription
+    );
+
     // ─── Constructor ──────────────────────────────────────────────────────────
 
     constructor(address _usdc) {
@@ -297,6 +303,27 @@ contract JobEscrow is ReentrancyGuard {
         usdc.safeTransfer(msg.sender, amount);
 
         emit JobCancelled(jobId, msg.sender, amount);
+    }
+
+    /**
+     * @notice Update the description of an Open job.
+     *         Only the poster can call this, and only while the job is still Open.
+     * @param jobId          Target job id.
+     * @param newDescription Replacement description (must be non-empty).
+     */
+    function updateJobDescription(uint256 jobId, string calldata newDescription)
+        external
+        nonReentrant
+    {
+        Job storage job = _jobs[jobId];
+        require(job.createdAt > 0,            "JobEscrow: job not found");
+        require(job.poster == msg.sender,     "JobEscrow: not poster");
+        require(job.status == JobStatus.Open, "JobEscrow: job not open");
+        require(bytes(newDescription).length > 0, "JobEscrow: empty description");
+
+        job.description = newDescription;
+
+        emit JobUpdated(jobId, msg.sender, newDescription);
     }
 
     // ─── View functions ───────────────────────────────────────────────────────

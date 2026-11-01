@@ -229,6 +229,27 @@ export function useJobActions() {
     }
   }, [address, ensureChain, writeContractAsync]);
 
+  // ─── updateJobDescription ──────────────────────────────────────────────────
+  const updateJobDescription = useCallback(async ({ jobId, newDescription }: { jobId: number; newDescription: string }) => {
+    if (!address) throw new Error("Connect your wallet first.");
+    if (!newDescription.trim()) throw new Error("Description cannot be empty.");
+    await ensureChain();
+    setPending(true);
+    try {
+      const tx = await writeContractAsync({
+        address: JOB_ESCROW_ADDRESS,
+        abi: jobEscrowAbi,
+        functionName: "updateJobDescription",
+        args: [BigInt(jobId), newDescription.trim()],
+      });
+      await client().waitForTransactionReceipt({ hash: tx });
+    } catch (e) {
+      throw new Error(formatWalletError(e));
+    } finally {
+      setPending(false);
+    }
+  }, [address, ensureChain, writeContractAsync]);
+
   // Legacy aliases kept for compat with existing components
   const acceptJob = submitWork;
   const confirmDelivery = approveJob;
@@ -237,7 +258,7 @@ export function useJobActions() {
 
   return {
     postJob, submitBid, selectWinner,
-    submitWork, approveJob, rejectJob, cancelJob,
+    submitWork, approveJob, rejectJob, cancelJob, updateJobDescription,
     acceptJob, confirmDelivery, disputeJob, claimPayment,
     pending,
   };

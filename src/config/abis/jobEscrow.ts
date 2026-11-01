@@ -1,195 +1,566 @@
 export const jobEscrowAbi = [
   {
-    type: "function",
-    name: "createJob",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "description", type: "string" },
-      { name: "budget", type: "uint256" },
-    ],
-    outputs: [{ name: "jobId", type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "bid",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "jobId", type: "uint256" },
-      { name: "amount", type: "uint256" },
-      { name: "message", type: "string" },
-    ],
-    outputs: [],
-  },
-  {
-    type: "function",
-    name: "acceptBid",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "jobId", type: "uint256" },
-      { name: "bidIndex", type: "uint256" },
-    ],
-    outputs: [],
-  },
-  {
-    type: "function",
-    name: "submitWork",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "jobId", type: "uint256" },
-      { name: "deliverable", type: "string" },
-    ],
-    outputs: [],
-  },
-  {
-    type: "function",
-    name: "approve",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "jobId", type: "uint256" }],
-    outputs: [],
-  },
-  {
-    type: "function",
-    name: "reject",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "jobId", type: "uint256" }],
-    outputs: [],
-  },
-  {
-    type: "function",
-    name: "cancelJob",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "jobId", type: "uint256" }],
-    outputs: [],
-  },
-  {
-    type: "function",
-    name: "getJob",
-    stateMutability: "view",
-    inputs: [{ name: "jobId", type: "uint256" }],
-    outputs: [
+    "type": "constructor",
+    "inputs": [
       {
-        name: "",
-        type: "tuple",
-        components: [
-          { name: "id", type: "uint256" },
-          { name: "poster", type: "address" },
-          { name: "description", type: "string" },
-          { name: "budget", type: "uint256" },
-          { name: "status", type: "uint8" },
-          { name: "acceptedBidder", type: "address" },
-          { name: "deliverable", type: "string" },
-          { name: "createdAt", type: "uint256" },
-          { name: "acceptedAt", type: "uint256" },
-        ],
-      },
+        "name": "_usdc",
+        "type": "address",
+        "internalType": "address"
+      }
     ],
+    "stateMutability": "nonpayable"
   },
   {
-    type: "function",
-    name: "getBids",
-    stateMutability: "view",
-    inputs: [{ name: "jobId", type: "uint256" }],
-    outputs: [
+    "type": "function",
+    "name": "INPROGRESS_TIMEOUT",
+    "inputs": [],
+    "outputs": [
       {
-        name: "",
-        type: "tuple[]",
-        components: [
-          { name: "bidder", type: "address" },
-          { name: "amount", type: "uint256" },
-          { name: "message", type: "string" },
-          { name: "timestamp", type: "uint256" },
-        ],
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "acceptBid",
+    "inputs": [
+      {
+        "name": "jobId",
+        "type": "uint256",
+        "internalType": "uint256"
       },
+      {
+        "name": "bidIndex",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
-    type: "function",
-    name: "jobCount",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ name: "", type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "INPROGRESS_TIMEOUT",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ name: "", type: "uint256" }],
-  },
-  {
-    type: "event",
-    name: "JobCreated",
-    inputs: [
-      { name: "jobId", type: "uint256", indexed: true },
-      { name: "poster", type: "address", indexed: true },
-      { name: "description", type: "string", indexed: false },
-      { name: "budget", type: "uint256", indexed: false },
-      { name: "createdAt", type: "uint256", indexed: false },
+    "type": "function",
+    "name": "approve",
+    "inputs": [
+      {
+        "name": "jobId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
-    type: "event",
-    name: "BidPlaced",
-    inputs: [
-      { name: "jobId", type: "uint256", indexed: true },
-      { name: "bidder", type: "address", indexed: true },
-      { name: "bidIndex", type: "uint256", indexed: false },
-      { name: "amount", type: "uint256", indexed: false },
-      { name: "message", type: "string", indexed: false },
-      { name: "timestamp", type: "uint256", indexed: false },
+    "type": "function",
+    "name": "bid",
+    "inputs": [
+      {
+        "name": "jobId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "message",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
-    type: "event",
-    name: "BidAccepted",
-    inputs: [
-      { name: "jobId", type: "uint256", indexed: true },
-      { name: "acceptedBidder", type: "address", indexed: true },
-      { name: "bidIndex", type: "uint256", indexed: false },
+    "type": "function",
+    "name": "cancelJob",
+    "inputs": [
+      {
+        "name": "jobId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
-    type: "event",
-    name: "WorkSubmitted",
-    inputs: [
-      { name: "jobId", type: "uint256", indexed: true },
-      { name: "bidder", type: "address", indexed: true },
-      { name: "deliverable", type: "string", indexed: false },
-      { name: "timestamp", type: "uint256", indexed: false },
+    "type": "function",
+    "name": "createJob",
+    "inputs": [
+      {
+        "name": "description",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "budget",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
+    "outputs": [
+      {
+        "name": "jobId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
   },
   {
-    type: "event",
-    name: "JobApproved",
-    inputs: [
-      { name: "jobId", type: "uint256", indexed: true },
-      { name: "bidder", type: "address", indexed: true },
-      { name: "amount", type: "uint256", indexed: false },
+    "type": "function",
+    "name": "getBids",
+    "inputs": [
+      {
+        "name": "jobId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple[]",
+        "internalType": "struct JobEscrow.Bid[]",
+        "components": [
+          {
+            "name": "bidder",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "amount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "message",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
   },
   {
-    type: "event",
-    name: "JobRejected",
-    inputs: [
-      { name: "jobId", type: "uint256", indexed: true },
-      { name: "poster", type: "address", indexed: true },
-      { name: "amount", type: "uint256", indexed: false },
+    "type": "function",
+    "name": "getJob",
+    "inputs": [
+      {
+        "name": "jobId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct JobEscrow.Job",
+        "components": [
+          {
+            "name": "id",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "poster",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "description",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "budget",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "status",
+            "type": "uint8",
+            "internalType": "enum JobEscrow.JobStatus"
+          },
+          {
+            "name": "acceptedBidder",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "deliverable",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "createdAt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "acceptedAt",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
   },
   {
-    type: "event",
-    name: "JobCancelled",
-    inputs: [
-      { name: "jobId", type: "uint256", indexed: true },
-      { name: "poster", type: "address", indexed: true },
-      { name: "amount", type: "uint256", indexed: false },
+    "type": "function",
+    "name": "jobCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
+    "stateMutability": "view"
   },
+  {
+    "type": "function",
+    "name": "reject",
+    "inputs": [
+      {
+        "name": "jobId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "submitWork",
+    "inputs": [
+      {
+        "name": "jobId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "deliverable",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "updateJobDescription",
+    "inputs": [
+      {
+        "name": "jobId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "newDescription",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "usdc",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IERC20"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "BidAccepted",
+    "inputs": [
+      {
+        "name": "jobId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "acceptedBidder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "bidIndex",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "BidPlaced",
+    "inputs": [
+      {
+        "name": "jobId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "bidder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "bidIndex",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "message",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "JobApproved",
+    "inputs": [
+      {
+        "name": "jobId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "bidder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "JobCancelled",
+    "inputs": [
+      {
+        "name": "jobId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "poster",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "JobCreated",
+    "inputs": [
+      {
+        "name": "jobId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "poster",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "budget",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "createdAt",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "JobRejected",
+    "inputs": [
+      {
+        "name": "jobId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "poster",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "JobUpdated",
+    "inputs": [
+      {
+        "name": "jobId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "poster",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newDescription",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "WorkSubmitted",
+    "inputs": [
+      {
+        "name": "jobId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "bidder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "deliverable",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SafeERC20FailedOperation",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  }
 ] as const;
+// ─── Status helpers ───────────────────────────────────────────────────────────
 
-export type EscrowJobStatus = 0 | 1 | 2 | 3 | 4 | 5;
+export enum EscrowJobStatus {
+  Open = 0,
+  InProgress = 1,
+  Submitted = 2,
+  Completed = 3,
+  Rejected = 4,
+  Cancelled = 5,
+}
 
-export const JOB_STATUS_LABEL: Record<EscrowJobStatus, string> = {
+export const JOB_STATUS_LABEL: Record<number, string> = {
   0: "Open",
   1: "In Progress",
   2: "Submitted",
@@ -198,11 +569,11 @@ export const JOB_STATUS_LABEL: Record<EscrowJobStatus, string> = {
   5: "Cancelled",
 };
 
-export const JOB_STATUS_COLOR: Record<EscrowJobStatus, string> = {
-  0: "text-emerald-600 bg-emerald-50",
-  1: "text-blue-600 bg-blue-50",
-  2: "text-amber-600 bg-amber-50",
-  3: "text-slate-600 bg-slate-100",
-  4: "text-red-600 bg-red-50",
-  5: "text-slate-500 bg-slate-100",
+export const JOB_STATUS_COLOR: Record<number, string> = {
+  0: "bg-[#e8f4ec] text-[#1a7a45] border-[#c4e4cc]",
+  1: "bg-[#f0e8f4] text-[#6a3c9a] border-[#dcc4ec]",
+  2: "bg-[#e8eef8] text-[#2256a0] border-[#c4d4ec]",
+  3: "bg-[#f0ebe3] text-[#5a3e1b] border-[#e0cdb0]",
+  4: "bg-[#f4e8e8] text-[#a02020] border-[#ecc4c4]",
+  5: "bg-surface-muted text-muted border-border",
 };

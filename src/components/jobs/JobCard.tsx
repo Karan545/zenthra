@@ -1,12 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/Button";
 import type { Job } from "@/types/job";
 import { shortenAddress } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { jobStatusLabel } from "@/config/abis";
-import { Clock, Users } from "lucide-react";
+import { Clock, Users, Pencil, Trash2, Loader2 } from "lucide-react";
+import { EditJobModal } from "@/components/jobs/EditJobModal";
+import { useJobActions } from "@/hooks/useJobActions";
+import { toast } from "sonner";
 
 interface JobCardProps {
   job: Job;
@@ -14,6 +18,7 @@ interface JobCardProps {
   onBid?: (job: Job) => void;
   onViewBids?: (job: Job) => void;
   isPoster?: boolean;
+  onRefresh?: () => void;
 }
 
 const STATUS_STYLES: Record<number, string> = {
@@ -25,9 +30,26 @@ const STATUS_STYLES: Record<number, string> = {
   5: "bg-surface-muted text-muted border-border",        // Cancelled — grey
 };
 
-export function JobCard({ job, index = 0, onBid, onViewBids, isPoster = false }: JobCardProps) {
+export function JobCard({ job, index = 0, onBid, onViewBids, isPoster = false, onRefresh }: JobCardProps) {
   const isOpen = job.status === 0;
   const hasWinner = job.status >= 1 && job.status !== 4;
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const { cancelJob } = useJobActions();
+
+  async function handleDelete() {
+    if (!confirm("Cancel this job? Your locked USDC will be refunded.")) return;
+    setDeleting(true);
+    try {
+      await cancelJob({ jobId: job.id });
+      toast.success("Job cancelled — USDC refunded.");
+      onRefresh?.();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Cancel failed.");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <motion.article
@@ -109,8 +131,34 @@ export function JobCard({ job, index = 0, onBid, onViewBids, isPoster = false }:
             )}
             {isPoster && job.bidsCount > 0 && onViewBids && (
               <Button type="button" variant="secondary" size="sm" onClick={() => onViewBids(job)}>
-                View bids
+                View bids ({job.bidsCount})
               </Button>
+            )}
+            {isPoster && isOpen && (
+              <div className="flex items-center gap-1.5 mt-1">
+                <button
+                  type="button"
+                  title="Edit job"
+                  onClick={() => setEditOpen(true)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-[12px] text-muted hover:border-border-strong hover:text-foreground transition-colors"
+                >
+                  <Pencil size={12} strokeWidth={1.75} />
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  title="Cancel job"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="inline-flex items-center gap-1 rounded-lg border border-[#ecc4c4] px-2.5 py-1.5 text-[12px] text-danger hover:bg-[#fdf0f0] disabled:opacity-50 transition-colors"
+                >
+                  {deleting
+                    ? <Loader2 size={12} strokeWidth={1.75} className="animate-spin" />
+                    : <Trash2 size={12} strokeWidth={1.75} />
+                  }
+                  {deleting ? "Cancelling…" : "Cancel"}
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -125,6 +173,14 @@ export function JobCard({ job, index = 0, onBid, onViewBids, isPoster = false }:
           </span>
         )}
       </p>
+
+      {/* Edit modal */}
+      <EditJobModal
+        job={job}
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        onUpdated={() => onRefresh?.()}
+      />
     </motion.article>
   );
 }
