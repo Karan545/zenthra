@@ -1,18 +1,18 @@
 /**
  * GET /api/agents/discover-jobs?jobId=<id>
  *
- * Reads open jobs from JobEscrow + registered agents from ZenthraCurator,
+ * Reads open jobs from JobEscrow + ALL agents from the ERC-8004 Identity Registry,
  * runs capability matching, and returns matched agents per job.
  *
- * Optional ?jobId=N — return matches for a single job only.
- * Without jobId — return matches for ALL open jobs.
+ * Agent source: Identity Registry (Arc Mainnet) — no curator required.
+ * Enumerates token IDs 1..totalSupply, fetches tokenURI, parses capabilities.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, http, formatUnits } from "viem";
 import { rankAgentsForJob } from "@/lib/jobMatching";
 
-// ─── Chain configs ─────────────────────────────────────────────────────────────
+// ─── Chain config ─────────────────────────────────────────────────────────────
 const ARC_MAINNET = {
   id: 5042,
   name: "Arc Mainnet",
@@ -20,39 +20,28 @@ const ARC_MAINNET = {
   rpcUrls: { default: { http: ["https://rpc.mainnet.arc.io"] } }, // arc-studio-allow-onchain-literal
 } as const;
 
-// ZenthraCurator is on Arc Testnet (5042002)
-const ARC_TESTNET = {
-  id: 5042002,
-  name: "Arc Testnet",
-  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-  rpcUrls: { default: { http: ["https://rpc.testnet.arc.io"] } }, // arc-studio-allow-onchain-literal
-} as const;
-
-// ─── Addresses from env ────────────────────────────────────────────────────────
+// ─── Addresses ────────────────────────────────────────────────────────────────
 const JOB_ESCROW_ADDRESS = (
   process.env.NEXT_PUBLIC_JOB_ESCROW_ADDRESS ?? ""
 ) as `0x${string}`;
 
-const CURATOR_ADDRESS = (
-  process.env.NEXT_PUBLIC_ZENTHRA_CURATOR_ADDRESS ?? ""
-) as `0x${string}`;
-
 const IDENTITY_REGISTRY = (
-  process.env.NEXT_PUBLIC_IDENTITY_REGISTRY_ADDRESS ?? ""
+  process.env.NEXT_PUBLIC_IDENTITY_REGISTRY_ADDRESS
+  ?? "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432" // arc-studio-allow-onchain-literal
 ) as `0x${string}`;
 
-// ─── RPC URL via proxy or fallback ────────────────────────────────────────────
-function getRpcUrl(chainKey: "Arc_Mainnet" | "Arc_Testnet", fallback: string): string {
-  const proxyBase = process.env.RPC_PROXY_BASE_URL;
-  const proxyToken = process.env.RPC_PROXY_TOKEN;
-  const proxyChains = (process.env.RPC_PROXY_CHAINS ?? "").split(",");
-  if (proxyBase && proxyToken && proxyChains.includes(chainKey)) {
-    return `${proxyBase}/api/rpc/${chainKey}?_rpc_token=${proxyToken}`;
+// ─── RPC helper ───────────────────────────────────────────────────────────────
+function getRpcUrl(): string {
+  const base = process.env.RPC_PROXY_BASE_URL;
+  const token = process.env.RPC_PROXY_TOKEN;
+  const chains = (process.env.RPC_PROXY_CHAINS ?? "").split(",");
+  if (base && token && chains.includes("Arc_Mainnet")) {
+    return `${base}/api/rpc/Arc_Mainnet?_rpc_token=${token}`;
   }
-  return fallback;
+  return ARC_MAINNET.rpcUrls.default.http[0];
 }
 
-// ─── Minimal ABIs ─────────────────────────────────────────────────────────────
+// ─── ABIs ─────────────────────────────────────────────────────────────────────
 const JOB_ESCROW_ABI = [
   { name: "jobCount", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   {
@@ -70,28 +59,11 @@ const JOB_ESCROW_ABI = [
   },
 ] as const;
 
-const CURATOR_ABI = [
-  { name: "getAllListedAgents", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "uint256[]" }] },
-  {
-    name: "getAgents", type: "function", stateMutability: "view",
-    inputs: [{ name: "agentIds", type: "uint256[]" }],
-    outputs: [{
-      name: "results", type: "tuple[]", components: [
-        { name: "agentId", type: "uint256" }, { name: "owner", type: "address" },
-        { name: "x402Endpoint", type: "string" }, { name: "capabilities", type: "string[]" },
-        { name: "isFeaturedByOwner", type: "bool" }, { name: "featuredUntil", type: "uint256" },
-        { name: "bondAmount", type: "uint256" }, { name: "listedAt", type: "uint256" },
-      ],
-    }],
-  },
-] as const;
-
 const IDENTITY_ABI = [
-  {
-    name: "tokenURI", type: "function", stateMutability: "view",
-    inputs: [{ name: "tokenId", type: "uint256" }],
-    outputs: [{ type: "string" }],
-  },
+  { name: "totalSupply", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { name: "tokenByIndex", type: "function", stateMutability: "view", inputs: [{ name: "index", type: "uint256" }], outputs: [{ type: "uint256" }] },
+  { name: "tokenURI", type: "function", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [{ type: "string" }] },
+  { name: "ownerOf", type: "function", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [{ type: "address" }] },
 ] as const;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -99,62 +71,85 @@ function fromUsdcUnits(raw: bigint): number {
   return parseFloat(formatUnits(raw, 6));
 }
 
+type AgentMeta = {
+  id: number;
+  name: string;
+  description: string;
+  image?: string;
+  capabilities: string[];
+  x402Endpoint?: string;
+  pricePerTask: number;
+  owner: string;
+};
+
 async function fetchAgentMeta(
   client: ReturnType<typeof createPublicClient>,
-  agentId: bigint
-): Promise<{ name: string; description: string; image?: string; pricePerTask: number }> {
+  tokenId: bigint
+): Promise<AgentMeta | null> {
   try {
-    const uri = await client.readContract({
-      address: IDENTITY_REGISTRY, abi: IDENTITY_ABI,
-      functionName: "tokenURI", args: [agentId],
-    }) as string;
+    const [uriRaw, ownerRaw] = await Promise.all([
+      client.readContract({ address: IDENTITY_REGISTRY, abi: IDENTITY_ABI, functionName: "tokenURI", args: [tokenId] }),
+      client.readContract({ address: IDENTITY_REGISTRY, abi: IDENTITY_ABI, functionName: "ownerOf", args: [tokenId] }),
+    ]);
+    const uri = uriRaw as string;
+    const owner = ownerRaw as string;
+
+    let meta: Record<string, unknown> = {};
 
     if (uri.startsWith("data:application/json;base64,")) {
-      const json = JSON.parse(atob(uri.replace("data:application/json;base64,", "")));
-      return {
-        name: json.name ?? `Agent #${agentId}`,
-        description: json.description ?? "",
-        image: json.image,
-        pricePerTask: Number(json.price ?? json.pricePerTask ?? 0),
-      };
+      try { meta = JSON.parse(atob(uri.replace("data:application/json;base64,", ""))); } catch { /* skip */ }
+    } else if (uri.startsWith("http") || uri.startsWith("ipfs")) {
+      const url = uri.startsWith("ipfs://") ? uri.replace("ipfs://", "https://ipfs.io/ipfs/") : uri;
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        if (res.ok) meta = await res.json();
+      } catch { /* skip */ }
     }
-    if (uri.startsWith("http") || uri.startsWith("ipfs")) {
-      const url = uri.startsWith("ipfs://")
-        ? uri.replace("ipfs://", "https://ipfs.io/ipfs/")
-        : uri;
-      const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
-      if (res.ok) {
-        const json = await res.json();
-        return {
-          name: json.name ?? `Agent #${agentId}`,
-          description: json.description ?? "",
-          image: json.image,
-          pricePerTask: Number(json.price ?? json.pricePerTask ?? 0),
-        };
+
+    if (!meta || typeof meta !== "object") return null;
+
+    // Parse capabilities from various possible fields
+    const caps: string[] = [];
+    const rawCaps = (meta.capabilities ?? meta.skills ?? meta.tags ?? []) as unknown[];
+    if (Array.isArray(rawCaps)) {
+      for (const c of rawCaps) {
+        if (typeof c === "string" && c.trim()) caps.push(c.trim());
       }
     }
+
+    // Also infer from description if no explicit caps
+    const desc = String(meta.description ?? "");
+    const x402 = String(meta.x402_endpoint ?? meta.x402Endpoint ?? meta.endpoint ?? "");
+    const price = Number(meta.price ?? meta.pricePerTask ?? meta.price_per_task ?? 0);
+
+    return {
+      id: Number(tokenId),
+      name: String(meta.name ?? `Agent #${tokenId}`),
+      description: desc,
+      image: meta.image ? String(meta.image) : undefined,
+      capabilities: caps,
+      x402Endpoint: x402 || undefined,
+      pricePerTask: price,
+      owner,
+    };
   } catch {
-    // fallback below
+    return null;
   }
-  return { name: `Agent #${agentId}`, description: "", pricePerTask: 0 };
 }
 
-// ─── Route handler ────────────────────────────────────────────────────────────
+// ─── Route ────────────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   if (!JOB_ESCROW_ADDRESS) {
     return NextResponse.json({ error: "NEXT_PUBLIC_JOB_ESCROW_ADDRESS not configured" }, { status: 500 });
   }
 
   try {
-    const mainnetRpc = getRpcUrl("Arc_Mainnet", ARC_MAINNET.rpcUrls.default.http[0]);
-    const testnetRpc = getRpcUrl("Arc_Testnet", ARC_TESTNET.rpcUrls.default.http[0]);
-    // JobEscrow lives on Arc Mainnet; ZenthraCurator lives on Arc Testnet
-    const client = createPublicClient({ chain: ARC_MAINNET, transport: http(mainnetRpc) });
-    const curatorClient = createPublicClient({ chain: ARC_TESTNET, transport: http(testnetRpc) });
+    const rpcUrl = getRpcUrl();
+    const client = createPublicClient({ chain: ARC_MAINNET, transport: http(rpcUrl) });
     const { searchParams } = new URL(req.url);
     const singleJobId = searchParams.get("jobId");
 
-    // ── 1. Fetch jobs from JobEscrow ───────────────────────────────────────
+    // ── 1. Fetch jobs ──────────────────────────────────────────────────────────
     const countRaw = await client.readContract({
       address: JOB_ESCROW_ADDRESS, abi: JOB_ESCROW_ABI, functionName: "jobCount",
     }) as bigint;
@@ -196,44 +191,53 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ jobs: [], totalAgents: 0 });
     }
 
-    // ── 2. Fetch curator agents ────────────────────────────────────────────
-    if (!CURATOR_ADDRESS) {
+    // ── 2. Enumerate agents from Identity Registry ─────────────────────────────
+    let totalSupply = 0;
+    try {
+      const supplyRaw = await client.readContract({
+        address: IDENTITY_REGISTRY, abi: IDENTITY_ABI, functionName: "totalSupply",
+      }) as bigint;
+      totalSupply = Number(supplyRaw);
+    } catch {
+      // totalSupply not implemented — scan up to 100 sequentially
+      totalSupply = 100;
+    }
+
+    // Fetch token IDs — try tokenByIndex first, fall back to sequential 1..N
+    let tokenIds: bigint[] = [];
+    try {
+      const indexResults = await Promise.allSettled(
+        Array.from({ length: totalSupply }, (_, i) =>
+          client.readContract({
+            address: IDENTITY_REGISTRY, abi: IDENTITY_ABI,
+            functionName: "tokenByIndex", args: [BigInt(i)],
+          })
+        )
+      );
+      tokenIds = indexResults
+        .filter((r) => r.status === "fulfilled")
+        .map((r) => BigInt((r as PromiseFulfilledResult<unknown>).value as string | number | bigint));
+    } catch {
+      // Fall back: assume token IDs are 1..totalSupply
+      tokenIds = Array.from({ length: Math.min(totalSupply, 200) }, (_, i) => BigInt(i + 1));
+    }
+
+    if (tokenIds.length === 0) {
       return NextResponse.json({ jobs: openJobs.map((j) => ({ ...j, matchedAgents: [] })), totalAgents: 0 });
     }
 
-    const agentIdsRaw = await curatorClient.readContract({
-      address: CURATOR_ADDRESS, abi: CURATOR_ABI, functionName: "getAllListedAgents",
-    }) as bigint[];
-
-    if (!agentIdsRaw || agentIdsRaw.length === 0) {
-      return NextResponse.json({ jobs: openJobs.map((j) => ({ ...j, matchedAgents: [] })), totalAgents: 0 });
+    // Fetch metadata in parallel with concurrency limit
+    const BATCH = 10;
+    const agents: AgentMeta[] = [];
+    for (let i = 0; i < tokenIds.length; i += BATCH) {
+      const batch = tokenIds.slice(i, i + BATCH);
+      const results = await Promise.allSettled(batch.map((id) => fetchAgentMeta(client, id)));
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value) agents.push(r.value);
+      }
     }
 
-    const listingsRaw = await curatorClient.readContract({
-      address: CURATOR_ADDRESS, abi: CURATOR_ABI,
-      functionName: "getAgents", args: [agentIdsRaw],
-    }) as unknown as Array<{
-      agentId: bigint; owner: string; x402Endpoint: string;
-      capabilities: string[]; bondAmount: bigint; listedAt: bigint;
-    }>;
-
-    // Use testnet identity registry for metadata (same canonical address)
-    const metaResults = await Promise.all(
-      listingsRaw.map((l) => fetchAgentMeta(curatorClient, l.agentId))
-    );
-
-    const agents = listingsRaw.map((l, i) => ({
-      id: Number(l.agentId),
-      name: metaResults[i].name,
-      description: metaResults[i].description,
-      image: metaResults[i].image,
-      capabilities: l.capabilities,
-      x402Endpoint: l.x402Endpoint || undefined,
-      pricePerTask: metaResults[i].pricePerTask,
-      owner: l.owner,
-    }));
-
-    // ── 3. Match agents to each job ────────────────────────────────────────
+    // ── 3. Match agents to each job ────────────────────────────────────────────
     const jobs = openJobs.map((job) => ({
       ...job,
       matchedAgents: rankAgentsForJob(agents, job.description),
