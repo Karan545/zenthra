@@ -191,34 +191,41 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ jobs: [], totalAgents: 0 });
     }
 
-    // ── 2. Enumerate agents from Identity Registry ─────────────────────────────
-    // Token IDs in this registry are non-sequential (e.g. 96295).
-    // We use tokenByIndex(0..totalSupply-1) to get the real token IDs.
-    let totalSupply = 0;
-    try {
-      const supplyRaw = await client.readContract({
-        address: IDENTITY_REGISTRY, abi: IDENTITY_ABI, functionName: "totalSupply",
-      }) as bigint;
-      totalSupply = Number(supplyRaw);
-    } catch {
-      totalSupply = 0;
-    }
-
-    // Fetch token IDs via tokenByIndex — the ONLY reliable way since IDs are non-sequential
+    // ── 2. Enumerate agents from Identity Registry via Transfer (mint) events ──
+    // This registry does NOT implement ERC-721Enumerable. Use eth_getLogs for
+    // Transfer(from=0x0) events (mints) to discover all token IDs.
     let tokenIds: bigint[] = [];
-    if (totalSupply > 0) {
-      const SCAN_LIMIT = Math.min(totalSupply, 500); // cap at 500 for perf
-      const indexResults = await Promise.allSettled(
-        Array.from({ length: SCAN_LIMIT }, (_, i) =>
-          client.readContract({
-            address: IDENTITY_REGISTRY, abi: IDENTITY_ABI,
-            functionName: "tokenByIndex", args: [BigInt(i)],
-          })
-        )
-      );
-      tokenIds = indexResults
-        .filter((r) => r.status === "fulfilled")
-        .map((r) => BigInt((r as PromiseFulfilledResult<unknown>).value as string | number | bigint));
+    try {
+      const rpc = ARC_MAINNET.rpcUrls.default.http[0];
+
+      const blockRes = await fetch(rpc, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", method: "eth_blockNumber", params: [], id: 1 }),
+      });
+      const blockData = await blockRes.json() as { result?: string };
+      const latest = blockData.result ? Number(BigInt(blockData.result)) : 0;
+      const fromBlock = "0x" + Math.max(0, latest - 200000).toString(16);
+
+      const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+      const ZERO_TOPIC     = "0x0000000000000000000000000000000000000000000000000000000000000000";
+
+      const logsRes = await fetch(rpc, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0", method: "eth_getLogs", id: 2,
+          params: [{ address: IDENTITY_REGISTRY, topics: [TRANSFER_TOPIC, ZERO_TOPIC], fromBlock, toBlock: "latest" }],
+        }),
+      });
+      const logsData = await logsRes.json() as { result?: Array<{ topics: string[] }> };
+
+      const seen = new Set<string>();
+      for (const log of (logsData.result ?? [])) {
+        const tid = log.topics[3];
+        if (tid && !seen.has(tid)) { seen.add(tid); tokenIds.push(BigInt(tid)); }
+      }
+    } catch (e) {
+      console.error("[discover-jobs] eth_getLogs failed:", e);
+      tokenIds = [BigInt(96295)]; // fallback: ChainScout
     }
 
     if (tokenIds.length === 0) {
