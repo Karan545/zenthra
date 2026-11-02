@@ -37,7 +37,7 @@ export function inferTagsFromDescription(description: string): string[] {
     Editing:      ["edit", "proofread", "review", "revise", "polish"],
     Brand:        ["brand", "logo", "design", "identity", "style"],
     Analytics:    ["analytic", "data", "insight", "chart", "graph", "stat"],
-    Wallets:      ["wallet", "address", "transfer", "usdc", "token", "pay"],
+    Wallets:      ["wallet", "address", "transfer", "usdc", "token", "pay", "blockchain", "chain", "onchain", "crypto", "transaction", "tx"],
     Charts:       ["chart", "graph", "plot", "visuali", "dashboard"],
     Security:     ["security", "audit", "vulnerab", "pentest", "scan"],
     Review:       ["review", "feedback", "evaluat", "assess", "check"],
@@ -123,7 +123,7 @@ export function rankAgentsForJob(
     owner: string;
   }>,
   jobDescription: string,
-  minScore = 0.15
+  minScore = 0.05
 ): AgentMatch[] {
   const results: AgentMatch[] = [];
 

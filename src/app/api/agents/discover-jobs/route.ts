@@ -12,12 +12,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, http, formatUnits } from "viem";
 import { rankAgentsForJob } from "@/lib/jobMatching";
 
-// ─── Chain config (Arc Mainnet, chain ID 5042) ────────────────────────────────
+// ─── Chain configs ─────────────────────────────────────────────────────────────
 const ARC_MAINNET = {
   id: 5042,
   name: "Arc Mainnet",
   nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
   rpcUrls: { default: { http: ["https://rpc.mainnet.arc.io"] } }, // arc-studio-allow-onchain-literal
+} as const;
+
+// ZenthraCurator is on Arc Testnet (5042002)
+const ARC_TESTNET = {
+  id: 5042002,
+  name: "Arc Testnet",
+  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+  rpcUrls: { default: { http: ["https://rpc.testnet.arc.io"] } }, // arc-studio-allow-onchain-literal
 } as const;
 
 // ─── Addresses from env ────────────────────────────────────────────────────────
@@ -34,15 +42,14 @@ const IDENTITY_REGISTRY = (
 ) as `0x${string}`;
 
 // ─── RPC URL via proxy or fallback ────────────────────────────────────────────
-function getArcRpcUrl(): string {
+function getRpcUrl(chainKey: "Arc_Mainnet" | "Arc_Testnet", fallback: string): string {
   const proxyBase = process.env.RPC_PROXY_BASE_URL;
   const proxyToken = process.env.RPC_PROXY_TOKEN;
   const proxyChains = (process.env.RPC_PROXY_CHAINS ?? "").split(",");
-  if (proxyBase && proxyToken && proxyChains.includes("Arc_Mainnet")) {
-    return `${proxyBase}/api/rpc/Arc_Mainnet?_rpc_token=${proxyToken}`;
+  if (proxyBase && proxyToken && proxyChains.includes(chainKey)) {
+    return `${proxyBase}/api/rpc/${chainKey}?_rpc_token=${proxyToken}`;
   }
-  // Fallback: public Arc Mainnet RPC (no rate limit measured this session)
-  return ARC_MAINNET.rpcUrls.default.http[0];
+  return fallback;
 }
 
 // ─── Minimal ABIs ─────────────────────────────────────────────────────────────
@@ -139,8 +146,11 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const rpcUrl = getArcRpcUrl();
-    const client = createPublicClient({ chain: ARC_MAINNET, transport: http(rpcUrl) });
+    const mainnetRpc = getRpcUrl("Arc_Mainnet", ARC_MAINNET.rpcUrls.default.http[0]);
+    const testnetRpc = getRpcUrl("Arc_Testnet", ARC_TESTNET.rpcUrls.default.http[0]);
+    // JobEscrow lives on Arc Mainnet; ZenthraCurator lives on Arc Testnet
+    const client = createPublicClient({ chain: ARC_MAINNET, transport: http(mainnetRpc) });
+    const curatorClient = createPublicClient({ chain: ARC_TESTNET, transport: http(testnetRpc) });
     const { searchParams } = new URL(req.url);
     const singleJobId = searchParams.get("jobId");
 
@@ -191,7 +201,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ jobs: openJobs.map((j) => ({ ...j, matchedAgents: [] })), totalAgents: 0 });
     }
 
-    const agentIdsRaw = await client.readContract({
+    const agentIdsRaw = await curatorClient.readContract({
       address: CURATOR_ADDRESS, abi: CURATOR_ABI, functionName: "getAllListedAgents",
     }) as bigint[];
 
@@ -199,7 +209,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ jobs: openJobs.map((j) => ({ ...j, matchedAgents: [] })), totalAgents: 0 });
     }
 
-    const listingsRaw = await client.readContract({
+    const listingsRaw = await curatorClient.readContract({
       address: CURATOR_ADDRESS, abi: CURATOR_ABI,
       functionName: "getAgents", args: [agentIdsRaw],
     }) as unknown as Array<{
@@ -207,8 +217,9 @@ export async function GET(req: NextRequest) {
       capabilities: string[]; bondAmount: bigint; listedAt: bigint;
     }>;
 
+    // Use testnet identity registry for metadata (same canonical address)
     const metaResults = await Promise.all(
-      listingsRaw.map((l) => fetchAgentMeta(client, l.agentId))
+      listingsRaw.map((l) => fetchAgentMeta(curatorClient, l.agentId))
     );
 
     const agents = listingsRaw.map((l, i) => ({
