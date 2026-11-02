@@ -15,17 +15,18 @@ interface EditJobModalProps {
 }
 
 export function EditJobModal({ job, open, onClose, onUpdated }: EditJobModalProps) {
+  const [title, setTitle] = useState(job.title);
   const [description, setDescription] = useState(job.description);
   const { updateJobDescription, pending } = useJobActions();
 
   async function handleSave() {
-    if (!description.trim() || description.trim() === job.description.trim()) {
-      onClose();
-      return;
-    }
+    if (!title.trim()) { return; }
+    const newDescription = `${title.trim()}|||${description.trim()}`;
+    const unchanged = title.trim() === job.title.trim() && description.trim() === job.description.trim();
+    if (unchanged) { onClose(); return; }
     try {
-      await updateJobDescription({ jobId: job.id, newDescription: description.trim() });
-      toast.success("Job description updated.");
+      await updateJobDescription({ jobId: job.id, newDescription });
+      toast.success("Job updated.");
       onUpdated();
       onClose();
     } catch (e: unknown) {
@@ -71,10 +72,23 @@ export function EditJobModal({ job, open, onClose, onUpdated }: EditJobModalProp
             </div>
 
             <p className="mt-1 text-sm text-muted">
-              You can only edit the description while the job is Open. Budget cannot be changed.
+              Edit title and description. Budget cannot be changed once locked.
             </p>
 
             <div className="mt-5 space-y-4">
+              <div>
+                <label className="mb-1.5 block text-[12px] font-medium uppercase tracking-[0.05em] text-muted">
+                  Job title
+                </label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  maxLength={120}
+                  placeholder="Short, clear job title…"
+                  className="w-full rounded-xl border border-border bg-surface-muted px-4 py-3 text-sm text-foreground placeholder:text-muted-soft focus:border-headline focus:outline-none focus:ring-1 focus:ring-headline/20 transition-colors"
+                />
+              </div>
               <div>
                 <label className="mb-1.5 block text-[12px] font-medium uppercase tracking-[0.05em] text-muted">
                   Job description
@@ -82,7 +96,7 @@ export function EditJobModal({ job, open, onClose, onUpdated }: EditJobModalProp
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  rows={6}
+                  rows={5}
                   maxLength={2000}
                   placeholder="Describe the work you need done…"
                   className="w-full resize-none rounded-xl border border-border bg-surface-muted px-4 py-3 text-sm text-foreground placeholder:text-muted-soft focus:border-headline focus:outline-none focus:ring-1 focus:ring-headline/20 transition-colors"
@@ -104,7 +118,7 @@ export function EditJobModal({ job, open, onClose, onUpdated }: EditJobModalProp
                 <button
                   type="button"
                   onClick={handleSave}
-                  disabled={pending || !description.trim()}
+                  disabled={pending || !title.trim() || !description.trim()}
                   className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-headline py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
                 >
                   {pending ? (

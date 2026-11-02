@@ -19,15 +19,32 @@ function fromUsdcUnits(raw: bigint): number {
  * JobEscrow:  0=Open 1=InProgress 2=Submitted 3=Completed 4=Rejected 5=Cancelled
  * UI display: 0=Open 1=InProgress 2=Submitted  3=Completed 4=Rejected 5=Cancelled
  */
+/** Split "TITLE|||DESCRIPTION" back into title + description.
+ *  Falls back gracefully for legacy jobs stored as plain text. */
+function splitTitleDescription(raw: string): { title: string; description: string } {
+  const SEP = "|||";
+  const idx = raw.indexOf(SEP);
+  if (idx !== -1) {
+    return { title: raw.slice(0, idx).trim(), description: raw.slice(idx + SEP.length).trim() };
+  }
+  // Legacy: first line is title, rest is description
+  const newline = raw.indexOf("\n\n");
+  if (newline !== -1) {
+    return { title: raw.slice(0, newline).trim(), description: raw.slice(newline + 2).trim() };
+  }
+  return { title: raw.trim(), description: raw.trim() };
+}
+
 function normaliseJob(raw: {
   id: bigint; poster: `0x${string}`; description: string;
   budget: bigint; status: number; acceptedBidder: `0x${string}`;
   deliverable: string; createdAt: bigint; acceptedAt: bigint;
 }, bidsCount = 0): Job {
+  const { title, description } = splitTitleDescription(raw.description);
   return {
     id: Number(raw.id),
-    title: raw.description.slice(0, 80), // description doubles as title
-    description: raw.description,
+    title,
+    description,
     bounty: fromUsdcUnits(raw.budget),
     currency: "USDC",
     requiredCapabilities: [],
@@ -108,12 +125,14 @@ export function useOpenJobs() {
           jobs.push(normaliseJob(raw, bidsCount));
         }
       }
-      // Open jobs first, then by newest
-      return jobs.sort((a, b) => {
-        if (a.status === 0 && b.status !== 0) return -1;
-        if (a.status !== 0 && b.status === 0) return 1;
-        return b.postedAt - a.postedAt;
-      });
+      // Exclude cancelled jobs from default view; sort Open first then newest
+      return jobs
+        .filter((j) => j.status !== 5)
+        .sort((a, b) => {
+          if (a.status === 0 && b.status !== 0) return -1;
+          if (a.status !== 0 && b.status === 0) return 1;
+          return b.postedAt - a.postedAt;
+        });
     },
   });
 

@@ -89,10 +89,10 @@ export function useJobActions() {
         await client().waitForTransactionReceipt({ hash: approveTx });
       }
 
-      // 2) createJob — combine title + description as the description field
+      // 2) createJob — store as "TITLE|||DESCRIPTION" so they can be split on read
       const description = input.title
-        ? `${input.title}\n\n${input.description}`
-        : input.description;
+        ? `${input.title.trim()}|||${input.description.trim()}`
+        : input.description.trim();
 
       const tx = await writeContractAsync({
         address: JOB_ESCROW_ADDRESS,
