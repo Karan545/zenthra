@@ -192,6 +192,8 @@ export async function GET(req: NextRequest) {
     }
 
     // ── 2. Enumerate agents from Identity Registry ─────────────────────────────
+    // Token IDs in this registry are non-sequential (e.g. 96295).
+    // We use tokenByIndex(0..totalSupply-1) to get the real token IDs.
     let totalSupply = 0;
     try {
       const supplyRaw = await client.readContract({
@@ -199,15 +201,15 @@ export async function GET(req: NextRequest) {
       }) as bigint;
       totalSupply = Number(supplyRaw);
     } catch {
-      // totalSupply not implemented — scan up to 100 sequentially
-      totalSupply = 100;
+      totalSupply = 0;
     }
 
-    // Fetch token IDs — try tokenByIndex first, fall back to sequential 1..N
+    // Fetch token IDs via tokenByIndex — the ONLY reliable way since IDs are non-sequential
     let tokenIds: bigint[] = [];
-    try {
+    if (totalSupply > 0) {
+      const SCAN_LIMIT = Math.min(totalSupply, 500); // cap at 500 for perf
       const indexResults = await Promise.allSettled(
-        Array.from({ length: totalSupply }, (_, i) =>
+        Array.from({ length: SCAN_LIMIT }, (_, i) =>
           client.readContract({
             address: IDENTITY_REGISTRY, abi: IDENTITY_ABI,
             functionName: "tokenByIndex", args: [BigInt(i)],
@@ -217,9 +219,6 @@ export async function GET(req: NextRequest) {
       tokenIds = indexResults
         .filter((r) => r.status === "fulfilled")
         .map((r) => BigInt((r as PromiseFulfilledResult<unknown>).value as string | number | bigint));
-    } catch {
-      // Fall back: assume token IDs are 1..totalSupply
-      tokenIds = Array.from({ length: Math.min(totalSupply, 200) }, (_, i) => BigInt(i + 1));
     }
 
     if (tokenIds.length === 0) {
