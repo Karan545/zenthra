@@ -30,6 +30,9 @@ const IDENTITY_REGISTRY = (
   ?? "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432" // arc-studio-allow-onchain-literal
 ) as `0x${string}`;
 
+// Token IDs in the ERC-8004 registry that job matching considers.
+const DEFAULT_AGENT_IDS = "96295"; // ChainScout
+
 // ─── RPC helper ───────────────────────────────────────────────────────────────
 function getRpcUrl(): string {
   const base = process.env.RPC_PROXY_BASE_URL;
@@ -119,8 +122,11 @@ async function fetchAgentMeta(
 
     // Also infer from description if no explicit caps
     const desc = String(meta.description ?? "");
-    const x402 = String(meta.x402_endpoint ?? meta.x402Endpoint ?? meta.endpoint ?? "");
-    const price = Number(meta.price ?? meta.pricePerTask ?? meta.price_per_task ?? 0);
+    const services = Array.isArray(meta.services) ? (meta.services as Array<{ name?: string; endpoint?: string }>) : [];
+    const svc = services.find((x) => String(x.name ?? "").toLowerCase() === "x402");
+    const pricing = (meta.pricing ?? {}) as { pricePerTask?: number };
+    const x402 = String(svc?.endpoint ?? meta.x402_endpoint ?? meta.x402Endpoint ?? meta.endpoint ?? "");
+    const price = Number(pricing.pricePerTask ?? meta.price ?? meta.pricePerTask ?? meta.price_per_task ?? 0);
 
     return {
       id: Number(tokenId),
@@ -178,6 +184,7 @@ export async function GET(req: NextRequest) {
         };
         return {
           id: Number(raw.id),
+          title: raw.description.split("|||")[0].split("\n\n")[0].slice(0, 80),
           description: raw.description,
           budget: fromUsdcUnits(raw.budget),
           status: raw.status,
@@ -191,42 +198,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ jobs: [], totalAgents: 0 });
     }
 
-    // ── 2. Enumerate agents from Identity Registry via Transfer (mint) events ──
-    // This registry does NOT implement ERC-721Enumerable. Use eth_getLogs for
-    // Transfer(from=0x0) events (mints) to discover all token IDs.
-    let tokenIds: bigint[] = [];
-    try {
-      const rpc = ARC_MAINNET.rpcUrls.default.http[0];
-
-      const blockRes = await fetch(rpc, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jsonrpc: "2.0", method: "eth_blockNumber", params: [], id: 1 }),
-      });
-      const blockData = await blockRes.json() as { result?: string };
-      const latest = blockData.result ? Number(BigInt(blockData.result)) : 0;
-      const fromBlock = "0x" + Math.max(0, latest - 200000).toString(16);
-
-      const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
-      const ZERO_TOPIC     = "0x0000000000000000000000000000000000000000000000000000000000000000";
-
-      const logsRes = await fetch(rpc, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0", method: "eth_getLogs", id: 2,
-          params: [{ address: IDENTITY_REGISTRY, topics: [TRANSFER_TOPIC, ZERO_TOPIC], fromBlock, toBlock: "latest" }],
-        }),
-      });
-      const logsData = await logsRes.json() as { result?: Array<{ topics: string[] }> };
-
-      const seen = new Set<string>();
-      for (const log of (logsData.result ?? [])) {
-        const tid = log.topics[3];
-        if (tid && !seen.has(tid)) { seen.add(tid); tokenIds.push(BigInt(tid)); }
-      }
-    } catch (e) {
-      console.error("[discover-jobs] eth_getLogs failed:", e);
-      tokenIds = [BigInt(96295)]; // fallback: ChainScout
-    }
+    // ── 2. Resolve the discoverable agent set ─────────────────────────────────
+    // The registry is not enumerable and holds tens of thousands of tokens, and the
+    // RPC rejects long log scans, so a full scan is not possible. Discoverable agents
+    // are a list of token IDs (DISCOVERABLE_AGENT_IDS, comma separated). Every ID is
+    // still verified on-chain: it must have an owner and a readable tokenURI.
+    const tokenIds: bigint[] = (process.env.DISCOVERABLE_AGENT_IDS ?? DEFAULT_AGENT_IDS)
+      .split(",")
+      .map((x) => x.trim())
+      .filter((x) => /^\d+$/.test(x))
+      .map((x) => BigInt(x));
 
     if (tokenIds.length === 0) {
       return NextResponse.json({ jobs: openJobs.map((j) => ({ ...j, matchedAgents: [] })), totalAgents: 0 });
